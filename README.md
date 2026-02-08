@@ -17,6 +17,7 @@ This repository contains an MVP foundation designed for release on both **Androi
 - `docs/mvp-technical-architecture.md` — Suggested architecture and release approach.
 - `docs/api/openapi.yaml` — Initial API contract for backend services.
 - `docs/database-schema.sql` — Initial relational schema.
+- `backend/rentory_api/` — Runnable FastAPI backend MVP.
 
 ## Run the Flutter app
 
@@ -48,3 +49,15 @@ flutter run
 - Connect payment gateway and receipt generation.
 - Add push notifications and chat.
 - Add subscriptions and feature-tier enforcement.
+
+
+## Run the backend API
+
+1. From `backend/rentory_api`:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
