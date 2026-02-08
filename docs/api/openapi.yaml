@@ -1,0 +1,127 @@
+openapi: 3.0.3
+info:
+  title: Rentory API
+  version: 0.1.0
+  description: MVP contract for owner and tenant rental management workflows.
+
+servers:
+  - url: https://api.rentory.app/v1
+
+paths:
+  /auth/login:
+    post:
+      summary: Login with phone/email OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                identifier:
+                  type: string
+                otp:
+                  type: string
+      responses:
+        '200':
+          description: Authenticated
+
+  /owners/{ownerId}/properties:
+    get:
+      summary: List owner properties
+      parameters:
+        - in: path
+          name: ownerId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Property list
+    post:
+      summary: Create property
+      parameters:
+        - in: path
+          name: ownerId
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Created
+
+  /properties/{propertyId}:
+    get:
+      summary: Get property details with tenants and bills
+      parameters:
+        - in: path
+          name: propertyId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Details
+
+  /properties/{propertyId}/tenants/join-requests:
+    post:
+      summary: Tenant requests join via QR
+      parameters:
+        - in: path
+          name: propertyId
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Join request created
+
+  /payments:
+    post:
+      summary: Create payment for rent or utility
+      responses:
+        '201':
+          description: Payment recorded
+
+  /notifications/broadcast:
+    post:
+      summary: Send owner broadcast to all or selected properties
+      responses:
+        '202':
+          description: Queued
+
+  /maintenance-tickets:
+    post:
+      summary: Tenant raises service ticket
+      responses:
+        '201':
+          description: Ticket created
+
+components:
+  schemas:
+    Property:
+      type: object
+      properties:
+        id:
+          type: string
+        ownerId:
+          type: string
+        location:
+          type: string
+        name:
+          type: string
+        unitType:
+          type: string
+        capacity:
+          type: integer
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        propertyId:
+          type: string
