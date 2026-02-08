@@ -61,3 +61,33 @@ source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
+
+
+## Frontend ↔ Backend connection status
+
+- The Owner dashboard now fetches properties from backend endpoint `GET /owners/owner-1/properties`.
+- The `Add Property` action calls `POST /owners/owner-1/properties`.
+- API base URL is configurable via dart define:
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8000
+```
+
+For Android emulator, use:
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
+```
+
+## Database recommendation
+
+- **Best choice:** PostgreSQL (matches structured entities like users/properties/bills/payments/leases).
+- **Current backend state:** PostgreSQL connection implemented with SQLAlchemy (`DATABASE_URL`).
+- **Next step:** add Alembic migrations, indexing, and production-grade backup/restore.
+
+
+## Backend PostgreSQL config
+
+```bash
+export DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/rentory
+```

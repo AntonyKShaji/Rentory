@@ -1,6 +1,6 @@
 # Rentory API (MVP)
 
-This is a runnable backend MVP for Rentory using FastAPI.
+This is a runnable backend MVP for Rentory using FastAPI + PostgreSQL via SQLAlchemy.
 
 ## Run locally
 
@@ -8,6 +8,7 @@ This is a runnable backend MVP for Rentory using FastAPI.
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+export DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/rentory
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -23,4 +24,8 @@ uvicorn app.main:app --reload --port 8000
 - `POST /maintenance-tickets`
 - `GET /health`
 
-> Note: Storage is currently in-memory for MVP/dev usage.
+## Current data storage
+
+- Uses PostgreSQL connection via `DATABASE_URL`.
+- Tables are auto-created on startup for MVP bootstrap.
+- For production, use Alembic migrations and managed Postgres backups.

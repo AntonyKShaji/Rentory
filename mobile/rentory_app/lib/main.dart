@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'models/property.dart';
+import 'services/api_service.dart';
+
 void main() {
   runApp(const RentoryApp());
 }
@@ -30,20 +33,14 @@ class RoleSelectionPage extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
-                'Choose your role',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
+              const Text('Choose your role', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
                   icon: const Icon(Icons.apartment),
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const OwnerHomePage()),
-                    );
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const OwnerHomePage()));
                   },
                   label: const Text('I am an Owner'),
                 ),
@@ -54,10 +51,7 @@ class RoleSelectionPage extends StatelessWidget {
                 child: FilledButton.tonalIcon(
                   icon: const Icon(Icons.person),
                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const TenantHomePage()),
-                    );
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const TenantHomePage()));
                   },
                   label: const Text('I am a Tenant'),
                 ),
@@ -70,49 +64,106 @@ class RoleSelectionPage extends StatelessWidget {
   }
 }
 
-class OwnerHomePage extends StatelessWidget {
+class OwnerHomePage extends StatefulWidget {
   const OwnerHomePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final properties = [
-      {'name': 'Kaloor Residency A', 'type': '2BHK', 'occupied': 3, 'capacity': 4},
-      {'name': 'Kaloor Residency B', 'type': '3BHK', 'occupied': 2, 'capacity': 3},
-      {'name': 'Edappally Homes', 'type': '1BHK', 'occupied': 1, 'capacity': 2},
-    ];
+  State<OwnerHomePage> createState() => _OwnerHomePageState();
+}
 
+class _OwnerHomePageState extends State<OwnerHomePage> {
+  final ApiService _apiService = ApiService();
+  late Future<List<Property>> _propertiesFuture;
+  bool _apiHealthy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshData();
+  }
+
+  Future<void> _refreshData() async {
+    _propertiesFuture = _apiService.listOwnerProperties('owner-1');
+    final healthy = await _apiService.healthCheck().catchError((_) => false);
+    if (mounted) {
+      setState(() {
+        _apiHealthy = healthy;
+      });
+    }
+  }
+
+  Future<void> _addSampleProperty() async {
+    await _apiService.createProperty(
+      ownerId: 'owner-1',
+      location: 'Kaloor',
+      name: 'New Property ${DateTime.now().second}',
+      unitType: '2BHK',
+      capacity: 3,
+    );
+
+    if (mounted) {
+      setState(() {
+        _propertiesFuture = _apiService.listOwnerProperties('owner-1');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Owner Dashboard'),
-        actions: const [
-          Icon(Icons.search),
-          SizedBox(width: 16),
-          Icon(Icons.notifications_none),
-          SizedBox(width: 16),
-          Icon(Icons.account_circle_outlined),
-          SizedBox(width: 12),
+        actions: [
+          const Icon(Icons.search),
+          const SizedBox(width: 12),
+          const Icon(Icons.notifications_none),
+          const SizedBox(width: 12),
+          Icon(_apiHealthy ? Icons.cloud_done : Icons.cloud_off, color: _apiHealthy ? Colors.green : Colors.red),
+          const SizedBox(width: 12),
+          const Icon(Icons.account_circle_outlined),
+          const SizedBox(width: 12),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text('Properties by Location', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          const Text('Kaloor (2 properties)'),
-          const SizedBox(height: 8),
-          ...properties.take(2).map((p) => _PropertyCard(property: p)),
-          const SizedBox(height: 12),
-          const Text('Edappally (1 property)'),
-          const SizedBox(height: 8),
-          _PropertyCard(property: properties.last),
-          const SizedBox(height: 16),
-          const Text('Quick Broadcast', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          FilledButton(
-            onPressed: () {},
-            child: const Text('Send announcement to all tenants'),
-          ),
-        ],
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addSampleProperty,
+        icon: const Icon(Icons.add_home_work_outlined),
+        label: const Text('Add Property'),
+      ),
+      body: FutureBuilder<List<Property>>(
+        future: _propertiesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Backend connection failed. Start API and set --dart-define=API_BASE_URL.\nError: ${snapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
+
+          final properties = snapshot.data ?? [];
+          if (properties.isEmpty) {
+            return const Center(
+              child: Text('No properties found yet. Use "Add Property" to create one from frontend.'),
+            );
+          }
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              const Text('Properties from Backend', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              ...properties.map((property) => _PropertyCard(property: property)),
+            ],
+          );
+        },
       ),
     );
   }
@@ -121,20 +172,15 @@ class OwnerHomePage extends StatelessWidget {
 class _PropertyCard extends StatelessWidget {
   const _PropertyCard({required this.property});
 
-  final Map<String, Object> property;
+  final Property property;
 
   @override
   Widget build(BuildContext context) {
-    final occupied = property['occupied'] as int;
-    final capacity = property['capacity'] as int;
-
     return Card(
       child: ListTile(
-        leading: CircleAvatar(
-          child: Text(property['type'].toString().substring(0, 1)),
-        ),
-        title: Text(property['name'].toString()),
-        subtitle: Text('${property['type']} • Occupancy: $occupied/$capacity'),
+        leading: CircleAvatar(child: Text(property.unitType.substring(0, 1))),
+        title: Text(property.name),
+        subtitle: Text('${property.location} • ${property.unitType} • Occupancy: ${property.occupiedCount}/${property.capacity}'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: const [
@@ -146,9 +192,7 @@ class _PropertyCard extends StatelessWidget {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => PropertyDetailPage(propertyName: property['name'].toString()),
-            ),
+            MaterialPageRoute(builder: (_) => PropertyDetailPage(propertyName: property.name)),
           );
         },
       ),
@@ -166,10 +210,7 @@ class _BillStatusDot extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Tooltip(
-        message: label,
-        child: Icon(Icons.circle, color: color, size: 12),
-      ),
+      child: Tooltip(message: label, child: Icon(Icons.circle, color: color, size: 12)),
     );
   }
 }
@@ -185,44 +226,9 @@ class PropertyDetailPage extends StatelessWidget {
       appBar: AppBar(title: Text(propertyName)),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: [
-          const Text('Tenants', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          _tenantTile('Akhil', '+91 90000 11111', 'Broker: Sunil'),
-          _tenantTile('Nima', '+91 90000 22222', 'Broker: David'),
-          const SizedBox(height: 16),
-          const Text('Supervisor', style: TextStyle(fontWeight: FontWeight.bold)),
-          const ListTile(
-            leading: Icon(Icons.support_agent),
-            title: Text('Assigned: Rajeev'),
-            subtitle: Text('+91 90000 88888'),
-          ),
-          const SizedBox(height: 16),
-          const Text('Pending Actions', style: TextStyle(fontWeight: FontWeight.bold)),
-          const ListTile(
-            leading: Icon(Icons.receipt_long),
-            title: Text('Electricity Bill due'),
-            subtitle: Text('Tap to notify tenant or pay now'),
-          ),
+        children: const [
+          Text('Tenant details and bills will be loaded from /properties/{id} in next iteration.'),
         ],
-      ),
-    );
-  }
-
-  Widget _tenantTile(String name, String phone, String broker) {
-    return Card(
-      child: ListTile(
-        title: Text(name),
-        subtitle: Text('$phone\n$broker'),
-        isThreeLine: true,
-        trailing: Wrap(
-          spacing: 8,
-          children: const [
-            Icon(Icons.call),
-            Icon(Icons.message),
-            Icon(Icons.chat),
-          ],
-        ),
       ),
     );
   }
@@ -249,51 +255,12 @@ class TenantHomePage extends StatelessWidget {
           Card(
             child: ListTile(
               leading: const Icon(Icons.home_work),
-              title: const Text('Assigned Property: Kaloor Residency A'),
-              subtitle: const Text('Owner approval: Active'),
+              title: const Text('Assigned Property: via owner approval'),
+              subtitle: const Text('QR onboarding supported by backend endpoint'),
               trailing: FilledButton(onPressed: () {}, child: const Text('Pay Rent')),
             ),
           ),
-          const SizedBox(height: 12),
-          const Text('Current Dues', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const _DueTile(title: 'Rent Bill', status: 'Pending'),
-          const _DueTile(title: 'Electricity Bill', status: 'Paid'),
-          const _DueTile(title: 'Water Bill', status: 'Pending'),
-          const SizedBox(height: 16),
-          const Text('Maintenance Request', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          TextField(
-            decoration: InputDecoration(
-              hintText: 'e.g., Water leakage in kitchen',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            maxLines: 3,
-          ),
-          const SizedBox(height: 8),
-          FilledButton(onPressed: () {}, child: const Text('Send request to owner')),
         ],
-      ),
-    );
-  }
-}
-
-class _DueTile extends StatelessWidget {
-  const _DueTile({required this.title, required this.status});
-
-  final String title;
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final isPaid = status.toLowerCase() == 'paid';
-    return Card(
-      child: ListTile(
-        title: Text(title),
-        trailing: Chip(
-          label: Text(status),
-          backgroundColor: isPaid ? Colors.green.shade100 : Colors.red.shade100,
-        ),
       ),
     );
   }
