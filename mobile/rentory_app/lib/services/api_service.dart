@@ -1,10 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
+
+import 'package:http/http.dart' as http;
 
 import '../models/property.dart';
 
 class ApiService {
-  ApiService({HttpClient? httpClient}) : _httpClient = httpClient ?? HttpClient();
+  ApiService({http.Client? httpClient}) : _httpClient = httpClient ?? http.Client();
 
   // Android emulator: http://10.0.2.2:8000
   // iOS simulator / desktop: http://127.0.0.1:8000
@@ -13,7 +14,7 @@ class ApiService {
     defaultValue: 'http://127.0.0.1:8000',
   );
 
-  final HttpClient _httpClient;
+  final http.Client _httpClient;
 
   Future<bool> healthCheck() async {
     final response = await _get('/health');
@@ -135,18 +136,18 @@ class ApiService {
   }
 
   Future<_ApiResponse> _get(String path) async {
-    final request = await _httpClient.getUrl(Uri.parse('$baseUrl$path'));
-    final response = await request.close();
-    final body = await response.transform(utf8.decoder).join();
+    final response = await _httpClient.get(Uri.parse('$baseUrl$path'));
+    final body = response.body;
     return _ApiResponse(statusCode: response.statusCode, body: body);
   }
 
   Future<_ApiResponse> _post(String path, Map<String, Object?> payload) async {
-    final request = await _httpClient.postUrl(Uri.parse('$baseUrl$path'));
-    request.headers.contentType = ContentType.json;
-    request.write(jsonEncode(payload));
-    final response = await request.close();
-    final body = await response.transform(utf8.decoder).join();
+    final response = await _httpClient.post(
+      Uri.parse('$baseUrl$path'),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
+    final body = response.body;
     return _ApiResponse(statusCode: response.statusCode, body: body);
   }
 }
