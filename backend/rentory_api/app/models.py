@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -17,7 +17,7 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(120), nullable=True)
     age: Mapped[int | None] = mapped_column(Integer, nullable=True)
     documents: Mapped[str | None] = mapped_column(Text, nullable=True)
-    assigned_property_id: Mapped[str | None] = mapped_column(ForeignKey("properties.id"), nullable=True)
+    assigned_property_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False), ForeignKey("properties.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
