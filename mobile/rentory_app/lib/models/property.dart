@@ -9,6 +9,7 @@ class Property {
     required this.occupiedCount,
     required this.rent,
     required this.qrCode,
+    required this.qrCodeUrl,
     this.imageUrl,
   });
 
@@ -21,6 +22,7 @@ class Property {
   final int occupiedCount;
   final double rent;
   final String qrCode;
+  final String qrCodeUrl;
   final String? imageUrl;
 
   factory Property.fromJson(Map<String, dynamic> json) {
@@ -34,6 +36,7 @@ class Property {
       occupiedCount: json['occupied_count'] as int,
       rent: (json['rent'] as num).toDouble(),
       qrCode: json['qr_code'] as String,
+      qrCodeUrl: json['qr_code_url'] as String,
       imageUrl: json['image_url'] as String?,
     );
   }

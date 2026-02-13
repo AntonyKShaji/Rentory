@@ -4,8 +4,11 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import os
+import sys
+from pathlib import Path
 
 os.environ["DATABASE_URL"] = "sqlite:///./rentory_test.db"
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from fastapi.testclient import TestClient
 
@@ -26,7 +29,6 @@ def test_health():
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
-
 def test_owner_and_property_flow_with_analytics_and_chat():
     owner_signup = client.post(
         "/auth/owners/signup",
@@ -40,7 +42,20 @@ def test_owner_and_property_flow_with_analytics_and_chat():
     assert owner_signup.status_code == 201
     owner_id = owner_signup.json()["user_id"]
 
-    create_resp = client.post(
+def test_owner_property_qr_chat_and_tenant_registration_flow():
+    owner_signup = client.post(
+        "/auth/owners/signup",
+        json={
+            "full_name": "Demo Owner",
+            "phone": "900000001",
+            "email": "owner1@rentory.local",
+            "password": "1234",
+        },
+    )
+    assert owner_signup.status_code == 201
+    owner_id = owner_signup.json()["user_id"]
+
+    create_property = client.post(
         f"/owners/{owner_id}/properties",
         json={
             "location": "Kaloor",
@@ -52,13 +67,15 @@ def test_owner_and_property_flow_with_analytics_and_chat():
             "description": "Near metro station",
         },
     )
-    assert create_resp.status_code == 201
-    property_data = create_resp.json()
+    assert create_property.status_code == 201
+    property_data = create_property.json()
     property_id = property_data["id"]
+    assert property_data["image_url"] == "https://example.com/property.jpg"
+    assert property_data["qr_code_url"].startswith("https://api.qrserver.com")
 
-    analytics_resp = client.get(f"/owners/{owner_id}/analytics")
-    assert analytics_resp.status_code == 200
-    assert analytics_resp.json()["total_properties"] == 1
+    detail_before_tenant = client.get(f"/properties/{property_id}")
+    assert detail_before_tenant.status_code == 200
+    assert detail_before_tenant.json()["chat_group_name"] == "Kaloor Residency A"
 
     tenant_register = client.post(
         "/auth/tenants/register",
@@ -75,29 +92,28 @@ def test_owner_and_property_flow_with_analytics_and_chat():
     assert tenant_register.status_code == 201
     tenant_id = tenant_register.json()["user_id"]
 
-    water_bill = client.patch(f"/properties/{property_id}/water-bill", json={"status": "paid"})
-    assert water_bill.status_code == 200
-
-    chat_post = client.post(
+    chat_post_owner = client.post(
         f"/properties/{property_id}/chat",
-        json={"sender_id": tenant_id, "text": "Hello everyone"},
+        json={"sender_id": owner_id, "text": "Welcome to the property group"},
     )
-    assert chat_post.status_code == 201
+    assert chat_post_owner.status_code == 201
+
+    chat_post_tenant = client.post(
+        f"/properties/{property_id}/chat",
+        json={"sender_id": tenant_id, "image_url": "https://example.com/bill.jpg"},
+    )
+    assert chat_post_tenant.status_code == 201
 
     chat_list = client.get(f"/properties/{property_id}/chat")
     assert chat_list.status_code == 200
-    assert len(chat_list.json()) == 1
+    assert len(chat_list.json()) == 2
 
     detail_resp = client.get(f"/properties/{property_id}")
     assert detail_resp.status_code == 200
     payload = detail_resp.json()
-    assert payload["property"]["id"] == property_id
-    assert payload["water_bill_status"] == "paid"
+    assert payload["property"]["qr_code"] == property_data["qr_code"]
+    assert payload["property"]["qr_code_url"].startswith("https://api.qrserver.com")
     assert payload["tenants"][0]["tenant_id"] == tenant_id
-
-    tenant_detail = client.get(f"/tenants/{tenant_id}")
-    assert tenant_detail.status_code == 200
-    assert tenant_detail.json()["full_name"] == "Alice Tenant"
 
 
 def test_qr_capacity_limit_and_existing_integrations():

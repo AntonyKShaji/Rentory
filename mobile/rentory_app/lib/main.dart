@@ -426,7 +426,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
           TextField(controller: _unitType, decoration: const InputDecoration(labelText: 'Unit type')),
           TextField(controller: _capacity, decoration: const InputDecoration(labelText: 'No. of tenants allowed')),
           TextField(controller: _rent, decoration: const InputDecoration(labelText: 'Rent')),
-          TextField(controller: _imageUrl, decoration: const InputDecoration(labelText: 'Single image URL')),
+          TextField(controller: _imageUrl, decoration: const InputDecoration(labelText: 'Property image URL (single image)')),
           TextField(controller: _description, decoration: const InputDecoration(labelText: 'Description')),
           const SizedBox(height: 16),
           FilledButton(onPressed: _submit, child: const Text('Create property')),
@@ -487,7 +487,20 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if ((data['property']['image_url'] as String?)?.isNotEmpty == true)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(data['property']['image_url'] as String, height: 180, width: double.infinity, fit: BoxFit.cover),
+                ),
+              const SizedBox(height: 12),
               Text('QR Code: ${data['property']['qr_code']}'),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(data['property']['qr_code_url'] as String, height: 140, width: 140, fit: BoxFit.cover),
+              ),
+              const SizedBox(height: 8),
+              Text('Chat group: ${data['chat_group_name']}'),
               Text('Current bill: ₹${data['current_bill_amount']}'),
               Row(
                 children: [

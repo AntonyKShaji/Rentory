@@ -39,7 +39,7 @@ class PropertyCreateRequest(BaseModel):
     unit_type: str
     capacity: int = Field(gt=0)
     rent: float = Field(gt=0)
-    image_url: str | None = None
+    image_url: str
     description: str | None = None
 
 
@@ -54,6 +54,7 @@ class PropertyCardResponse(BaseModel):
     rent: float
     image_url: str | None
     qr_code: str
+    qr_code_url: str
 
 
 class OwnerAnalyticsResponse(BaseModel):
@@ -76,6 +77,7 @@ class PropertyDetailsResponse(BaseModel):
     current_bill_amount: float
     water_bill_status: str
     owner_phone: str
+    chat_group_name: str
     tenants: list[TenantSummaryResponse]
 
 
@@ -157,7 +159,7 @@ class ChatMessageCreate(BaseModel):
 
 class ChatMessageResponse(BaseModel):
     id: str
-    property_id: str
+    group_id: str
     sender_id: str
     sender_name: str
     text: str | None

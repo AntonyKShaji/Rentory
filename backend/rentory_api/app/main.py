@@ -1,4 +1,5 @@
 from datetime import datetime
+from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -7,7 +8,18 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .database import Base, engine, get_db
-from .models import Bill, ChatMessage, MaintenanceTicket, Notification, Payment, Property, PropertyTenant, User
+from .models import (
+    Bill,
+    ChatGroup,
+    ChatGroupMember,
+    ChatMessage,
+    MaintenanceTicket,
+    Notification,
+    Payment,
+    Property,
+    PropertyTenant,
+    User,
+)
 from .schemas import (
     BroadcastCreate,
     BroadcastResponse,
@@ -33,7 +45,7 @@ from .schemas import (
     WaterBillStatusUpdateRequest,
 )
 
-app = FastAPI(title="Rentory API", version="1.0.0")
+app = FastAPI(title="Rentory API", version="1.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -45,6 +57,32 @@ app.add_middleware(
 
 def _hash_password(password: str) -> str:
     return f"plain::{password}"
+
+
+def _qr_code_url(qr_code: str) -> str:
+    return f"https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={quote(qr_code)}"
+
+
+def _property_card(row: Property) -> PropertyCardResponse:
+    return PropertyCardResponse(
+        id=row.id,
+        owner_id=row.owner_id,
+        location=row.location,
+        name=row.name,
+        unit_type=row.unit_type,
+        capacity=row.capacity,
+        occupied_count=row.occupied_count,
+        rent=row.rent,
+        image_url=row.image_url,
+        qr_code=row.qr_code,
+        qr_code_url=_qr_code_url(row.qr_code),
+    )
+
+
+def _ensure_chat_membership(db: Session, group_id: str, user_id: str, role: str) -> None:
+    existing = db.scalar(select(ChatGroupMember).where(ChatGroupMember.group_id == group_id, ChatGroupMember.user_id == user_id))
+    if existing is None:
+        db.add(ChatGroupMember(id=str(uuid4()), group_id=group_id, user_id=user_id, role=role))
 
 
 @app.on_event("startup")
@@ -113,6 +151,11 @@ def tenant_register(payload: TenantRegistrationRequest, db: Session = Depends(ge
     )
     property_row.occupied_count += 1
     db.add(link)
+
+    group = db.scalar(select(ChatGroup).where(ChatGroup.property_id == property_row.id))
+    if group is not None:
+        _ensure_chat_membership(db, group.id, tenant.id, "tenant")
+
     db.commit()
     return LoginResponse(access_token=f"demo-token-{uuid4()}", role="tenant", user_id=tenant.id)
 
@@ -139,21 +182,7 @@ def list_properties(owner_id: str, db: Session = Depends(get_db)) -> list[Proper
         raise HTTPException(status_code=404, detail="Owner not found")
 
     rows = db.scalars(select(Property).where(Property.owner_id == owner_id)).all()
-    return [
-        PropertyCardResponse(
-            id=row.id,
-            owner_id=row.owner_id,
-            location=row.location,
-            name=row.name,
-            unit_type=row.unit_type,
-            capacity=row.capacity,
-            occupied_count=row.occupied_count,
-            rent=row.rent,
-            image_url=row.image_url,
-            qr_code=row.qr_code,
-        )
-        for row in rows
-    ]
+    return [_property_card(row) for row in rows]
 
 
 @app.get("/owners/{owner_id}/analytics", response_model=OwnerAnalyticsResponse)
@@ -186,7 +215,7 @@ def create_property(owner_id: str, payload: PropertyCreateRequest, db: Session =
     if owner is None or owner.role != "owner":
         raise HTTPException(status_code=404, detail="Owner not found")
 
-    row = Property(
+    property_row = Property(
         id=str(uuid4()),
         owner_id=owner_id,
         location=payload.location,
@@ -201,22 +230,21 @@ def create_property(owner_id: str, payload: PropertyCreateRequest, db: Session =
         current_bill_amount=payload.rent,
         water_bill_status="unpaid",
     )
-    db.add(row)
-    db.commit()
-    db.refresh(row)
+    db.add(property_row)
+    db.flush()
 
-    return PropertyCardResponse(
-        id=row.id,
-        owner_id=row.owner_id,
-        location=row.location,
-        name=row.name,
-        unit_type=row.unit_type,
-        capacity=row.capacity,
-        occupied_count=row.occupied_count,
-        rent=row.rent,
-        image_url=row.image_url,
-        qr_code=row.qr_code,
+    chat_group = ChatGroup(
+        id=str(uuid4()),
+        property_id=property_row.id,
+        group_name=property_row.name,
     )
+    db.add(chat_group)
+    db.flush()
+    _ensure_chat_membership(db, chat_group.id, owner_id, "owner")
+
+    db.commit()
+    db.refresh(property_row)
+    return _property_card(property_row)
 
 
 @app.get("/properties/{property_id}", response_model=PropertyDetailsResponse)
@@ -226,6 +254,7 @@ def get_property(property_id: str, db: Session = Depends(get_db)) -> PropertyDet
         raise HTTPException(status_code=404, detail="Property not found")
 
     owner = db.get(User, row.owner_id)
+    chat_group = db.scalar(select(ChatGroup).where(ChatGroup.property_id == property_id))
     tenants = db.execute(
         select(PropertyTenant.id, PropertyTenant.tenant_id, PropertyTenant.status, User.full_name, User.phone)
         .join(User, User.id == PropertyTenant.tenant_id)
@@ -233,22 +262,12 @@ def get_property(property_id: str, db: Session = Depends(get_db)) -> PropertyDet
     ).all()
 
     return PropertyDetailsResponse(
-        property=PropertyCardResponse(
-            id=row.id,
-            owner_id=row.owner_id,
-            location=row.location,
-            name=row.name,
-            unit_type=row.unit_type,
-            capacity=row.capacity,
-            occupied_count=row.occupied_count,
-            rent=row.rent,
-            image_url=row.image_url,
-            qr_code=row.qr_code,
-        ),
+        property=_property_card(row),
         description=row.description,
         current_bill_amount=row.current_bill_amount,
         water_bill_status=row.water_bill_status,
         owner_phone=owner.phone if owner else "",
+        chat_group_name=chat_group.group_name if chat_group else row.name,
         tenants=[
             TenantSummaryResponse(
                 join_id=t.id,
@@ -304,18 +323,7 @@ def tenant_dashboard(tenant_id: str, db: Session = Depends(get_db)) -> TenantDas
 
     owner = db.get(User, property_row.owner_id)
     return TenantDashboardResponse(
-        property=PropertyCardResponse(
-            id=property_row.id,
-            owner_id=property_row.owner_id,
-            location=property_row.location,
-            name=property_row.name,
-            unit_type=property_row.unit_type,
-            capacity=property_row.capacity,
-            occupied_count=property_row.occupied_count,
-            rent=property_row.rent,
-            image_url=property_row.image_url,
-            qr_code=property_row.qr_code,
-        ),
+        property=_property_card(property_row),
         owner_phone=owner.phone if owner else "",
         rent=property_row.rent,
     )
@@ -323,14 +331,15 @@ def tenant_dashboard(tenant_id: str, db: Session = Depends(get_db)) -> TenantDas
 
 @app.get("/properties/{property_id}/chat", response_model=list[ChatMessageResponse])
 def list_chat_messages(property_id: str, db: Session = Depends(get_db)) -> list[ChatMessageResponse]:
-    if db.get(Property, property_id) is None:
-        raise HTTPException(status_code=404, detail="Property not found")
+    group = db.scalar(select(ChatGroup).where(ChatGroup.property_id == property_id))
+    if group is None:
+        raise HTTPException(status_code=404, detail="Chat group not found")
 
-    rows = db.scalars(select(ChatMessage).where(ChatMessage.property_id == property_id).order_by(ChatMessage.created_at)).all()
+    rows = db.scalars(select(ChatMessage).where(ChatMessage.group_id == group.id).order_by(ChatMessage.created_at)).all()
     return [
         ChatMessageResponse(
             id=row.id,
-            property_id=row.property_id,
+            group_id=row.group_id,
             sender_id=row.sender_id,
             sender_name=row.sender_name,
             text=row.text,
@@ -343,19 +352,26 @@ def list_chat_messages(property_id: str, db: Session = Depends(get_db)) -> list[
 
 @app.post("/properties/{property_id}/chat", response_model=ChatMessageResponse, status_code=201)
 def post_chat_message(property_id: str, payload: ChatMessageCreate, db: Session = Depends(get_db)) -> ChatMessageResponse:
-    if db.get(Property, property_id) is None:
-        raise HTTPException(status_code=404, detail="Property not found")
+    group = db.scalar(select(ChatGroup).where(ChatGroup.property_id == property_id))
+    if group is None:
+        raise HTTPException(status_code=404, detail="Chat group not found")
 
     sender = db.get(User, payload.sender_id)
     if sender is None:
         raise HTTPException(status_code=404, detail="Sender not found")
+
+    membership = db.scalar(
+        select(ChatGroupMember).where(ChatGroupMember.group_id == group.id, ChatGroupMember.user_id == sender.id)
+    )
+    if membership is None:
+        raise HTTPException(status_code=403, detail="Sender is not a member of this group")
 
     if not payload.text and not payload.image_url:
         raise HTTPException(status_code=422, detail="Message text or image is required")
 
     row = ChatMessage(
         id=str(uuid4()),
-        property_id=property_id,
+        group_id=group.id,
         sender_id=sender.id,
         sender_name=sender.full_name,
         text=payload.text,
@@ -367,7 +383,7 @@ def post_chat_message(property_id: str, payload: ChatMessageCreate, db: Session 
 
     return ChatMessageResponse(
         id=row.id,
-        property_id=row.property_id,
+        group_id=row.group_id,
         sender_id=row.sender_id,
         sender_name=row.sender_name,
         text=row.text,

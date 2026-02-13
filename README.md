@@ -13,12 +13,12 @@ Rentory is a cross-platform rental management application for **property owners*
   - total properties grouped by location,
   - total tenants across all properties.
 - Property detail screen APIs provide:
-  - property metadata,
+  - property metadata and image,
   - tenant list,
   - current bill amount,
   - water bill status (owner can switch paid/unpaid),
-  - unique QR code per property.
-- Group chat endpoints per property (owner + tenants, text/image URL sharing).
+  - unique QR code value and renderable QR image URL.
+- Group chat is now modeled with property-specific chat groups and membership validation (owner + tenants, text/image URL sharing).
 - Tenant detail API by selecting a tenant.
 
 ### Tenant side
