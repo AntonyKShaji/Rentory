@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -14,6 +14,10 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(120), nullable=False)
     phone: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     email: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    documents: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assigned_property_id: Mapped[str | None] = mapped_column(ForeignKey("properties.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -24,20 +28,59 @@ class Property(Base):
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
     location: Mapped[str] = mapped_column(String(120), nullable=False)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
-    unit_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    unit_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    qr_code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     occupied_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rent: Mapped[float] = mapped_column(Float, nullable=False)
+    current_bill_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    water_bill_status: Mapped[str] = mapped_column(String(20), nullable=False, default="unpaid")
 
-    owner = relationship("User")
+    owner = relationship("User", foreign_keys=[owner_id])
 
 
 class PropertyTenant(Base):
     __tablename__ = "property_tenants"
+    __table_args__ = (UniqueConstraint("property_id", "tenant_id", name="uq_property_tenant"),)
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     property_id: Mapped[str] = mapped_column(ForeignKey("properties.id"), nullable=False)
     tenant_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ChatGroup(Base):
+    __tablename__ = "chat_groups"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    property_id: Mapped[str] = mapped_column(ForeignKey("properties.id"), nullable=False, unique=True)
+    group_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ChatGroupMember(Base):
+    __tablename__ = "chat_group_members"
+    __table_args__ = (UniqueConstraint("group_id", "user_id", name="uq_chat_group_member"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    group_id: Mapped[str] = mapped_column(ForeignKey("chat_groups.id"), nullable=False)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    joined_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    group_id: Mapped[str] = mapped_column(ForeignKey("chat_groups.id"), nullable=False)
+    sender_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    sender_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
