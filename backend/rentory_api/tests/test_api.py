@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
 import os
 import sys
 from pathlib import Path
@@ -24,6 +29,18 @@ def test_health():
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
+def test_owner_and_property_flow_with_analytics_and_chat():
+    owner_signup = client.post(
+        "/auth/owners/signup",
+        json={
+            "full_name": "Demo Owner",
+            "phone": "900000001",
+            "email": "owner1@rentory.local",
+            "password": "1234",
+        },
+    )
+    assert owner_signup.status_code == 201
+    owner_id = owner_signup.json()["user_id"]
 
 def test_owner_property_qr_chat_and_tenant_registration_flow():
     owner_signup = client.post(
