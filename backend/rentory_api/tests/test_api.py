@@ -117,9 +117,10 @@ def test_owner_property_qr_chat_and_tenant_registration_flow():
 
 
 def test_qr_capacity_limit_and_existing_integrations():
+    owner_id = "11111111-1111-4111-8111-111111111111"
     db = SessionLocal()
     owner = User(
-        id="owner-seeded",
+        id=owner_id,
         role="owner",
         full_name="Owner Seed",
         phone="owner-seeded",
@@ -131,7 +132,7 @@ def test_qr_capacity_limit_and_existing_integrations():
     db.close()
 
     create_property = client.post(
-        "/owners/owner-seeded/properties",
+        f"/owners/{owner_id}/properties",
         json={
             "location": "Edappally",
             "name": "Edappally Homes",
@@ -198,7 +199,7 @@ def test_qr_capacity_limit_and_existing_integrations():
     broadcast_resp = client.post(
         "/notifications/broadcast",
         json={
-            "owner_id": "owner-seeded",
+            "owner_id": owner_id,
             "title": "Reminder",
             "body": "Please pay rent",
             "property_ids": [property_id],
