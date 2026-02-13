@@ -7,6 +7,9 @@ class Property {
     required this.unitType,
     required this.capacity,
     required this.occupiedCount,
+    required this.rent,
+    required this.qrCode,
+    this.imageUrl,
   });
 
   final String id;
@@ -16,6 +19,9 @@ class Property {
   final String unitType;
   final int capacity;
   final int occupiedCount;
+  final double rent;
+  final String qrCode;
+  final String? imageUrl;
 
   factory Property.fromJson(Map<String, dynamic> json) {
     return Property(
@@ -26,6 +32,9 @@ class Property {
       unitType: json['unit_type'] as String,
       capacity: json['capacity'] as int,
       occupiedCount: json['occupied_count'] as int,
+      rent: (json['rent'] as num).toDouble(),
+      qrCode: json['qr_code'] as String,
+      imageUrl: json['image_url'] as String?,
     );
   }
 }

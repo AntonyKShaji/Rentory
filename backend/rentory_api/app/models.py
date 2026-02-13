@@ -14,6 +14,10 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(120), nullable=False)
     phone: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
     email: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    documents: Mapped[str | None] = mapped_column(Text, nullable=True)
+    assigned_property_id: Mapped[str | None] = mapped_column(ForeignKey("properties.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -24,11 +28,17 @@ class Property(Base):
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
     location: Mapped[str] = mapped_column(String(120), nullable=False)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
-    unit_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    unit_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    qr_code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     occupied_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rent: Mapped[float] = mapped_column(Float, nullable=False)
+    current_bill_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    water_bill_status: Mapped[str] = mapped_column(String(20), nullable=False, default="unpaid")
 
-    owner = relationship("User")
+    owner = relationship("User", foreign_keys=[owner_id])
 
 
 class PropertyTenant(Base):
@@ -38,6 +48,18 @@ class PropertyTenant(Base):
     property_id: Mapped[str] = mapped_column(ForeignKey("properties.id"), nullable=False)
     tenant_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    property_id: Mapped[str] = mapped_column(ForeignKey("properties.id"), nullable=False)
+    sender_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    sender_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
