@@ -208,6 +208,7 @@ class TenantAuthPage extends StatefulWidget {
 
 class _TenantAuthPageState extends State<TenantAuthPage> {
   final ApiService _api = ApiService();
+  final ImagePicker _picker = ImagePicker();
   final _identifier = TextEditingController();
   final _password = TextEditingController(text: '1234');
   bool _isRegister = true;
@@ -215,9 +216,17 @@ class _TenantAuthPageState extends State<TenantAuthPage> {
   final _qr = TextEditingController();
   final _name = TextEditingController();
   final _age = TextEditingController();
-  final _documents = TextEditingController();
+  String? _aadharImageDataUri;
   final _email = TextEditingController();
   final Map<String, String?> _errors = {};
+
+  Future<void> _pickAadharImage() async {
+    final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    final ext = file.path.toLowerCase().endsWith('png') ? 'png' : 'jpeg';
+    setState(() => _aadharImageDataUri = 'data:image/$ext;base64,${base64Encode(bytes)}');
+  }
 
   bool _validate() {
     final nextErrors = <String, String?>{};
@@ -228,7 +237,7 @@ class _TenantAuthPageState extends State<TenantAuthPage> {
     } else if (_isRegister && (int.tryParse(_age.text.trim()) ?? 0) <= 0) {
       nextErrors['age'] = 'Age must be a valid number';
     }
-    if (_isRegister && _documents.text.trim().isEmpty) nextErrors['documents'] = 'Documents are required';
+    if (_isRegister && _aadharImageDataUri == null) nextErrors['documents'] = 'Aadhar image is required';
     if (_isRegister && _email.text.trim().isEmpty) nextErrors['email'] = 'Email is required';
     if (_identifier.text.trim().isEmpty) nextErrors['phone'] = 'Phone is required';
     if (_password.text.trim().isEmpty) nextErrors['password'] = 'Password is required';
@@ -251,7 +260,7 @@ class _TenantAuthPageState extends State<TenantAuthPage> {
               age: int.tryParse(_age.text) ?? 0,
               phone: _identifier.text,
               email: _email.text,
-              documents: _documents.text,
+              documents: _aadharImageDataUri!,
               password: _password.text,
             )
           : await _api.login(identifier: _identifier.text, password: _password.text, role: 'tenant');
@@ -289,7 +298,14 @@ class _TenantAuthPageState extends State<TenantAuthPage> {
               const SizedBox(height: 10),
               FieldWithTopError(
                 errorText: _errors['documents'],
-                child: TextField(controller: _documents, decoration: const InputDecoration(labelText: 'Documents')),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RemoteOrDataImage(imageRef: _aadharImageDataUri, height: 140),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(onPressed: _pickAadharImage, icon: const Icon(Icons.badge_outlined), label: const Text('Upload Aadhar image')),
+                  ],
+                ),
               ),
               const SizedBox(height: 10),
               FieldWithTopError(
@@ -651,7 +667,10 @@ class TenantDetailsPage extends StatelessWidget {
                   Text('Age: ${tenant['age']}'),
                   Text('Phone: ${tenant['phone']}'),
                   Text('Email: ${tenant['email']}'),
-                  Text('Documents: ${tenant['documents']}'),
+                  const SizedBox(height: 10),
+                  const Text('Aadhar', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  RemoteOrDataImage(imageRef: tenant['documents'] as String?, height: 220),
                 ]),
               ),
             ],
