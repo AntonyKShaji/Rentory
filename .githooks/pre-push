@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+while read -r _ _ remote_ref _; do
+  if [[ "$remote_ref" == "refs/heads/main" ]]; then
+    echo "❌ Pushes to 'main' are blocked locally. Push to 'dev' and open a PR instead."
+    exit 1
+  fi
+done
