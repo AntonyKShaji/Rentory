@@ -773,11 +773,24 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _pickChatImage() async {
-    final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final file = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 65,
+      maxWidth: 1280,
+      maxHeight: 1280,
+    );
     if (file == null) return;
     final bytes = await file.readAsBytes();
     final ext = file.path.toLowerCase().endsWith('png') ? 'png' : 'jpeg';
-    setState(() => _pendingImage = 'data:image/$ext;base64,${base64Encode(bytes)}');
+    final dataUri = 'data:image/$ext;base64,${base64Encode(bytes)}';
+    if (dataUri.length > 1_000_000) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selected image is too large. Please choose a smaller image.')),
+      );
+      return;
+    }
+    setState(() => _pendingImage = dataUri);
   }
 
   Future<void> _send() async {
