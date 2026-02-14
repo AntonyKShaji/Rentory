@@ -35,6 +35,22 @@ Rentory is a cross-platform rental management application for **property owners*
 - `backend/rentory_api/` — FastAPI backend and tests.
 - `docs/` — architecture, schema, API, and backlog artifacts.
 
+
+## Git workflow (dev-first)
+
+This repository now uses a **dev-first workflow**:
+
+- `main` is the protected branch (no direct commits/pushes).
+- `dev` is the active development branch for upcoming changes.
+
+To enable local protection hooks, run:
+
+```bash
+./scripts/setup-git-protection.sh
+```
+
+This configures `core.hooksPath` to `.githooks/` and blocks commits/pushes to `main`.
+
 ## Run the backend API
 
 ```bash
