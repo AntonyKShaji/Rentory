@@ -20,7 +20,7 @@ CREATE TABLE properties (
   name VARCHAR(120) NOT NULL,
   unit_type VARCHAR(40) NOT NULL,
   description TEXT,
-  image_url VARCHAR(500) NOT NULL,
+  image_url TEXT NOT NULL,
   qr_code VARCHAR(64) UNIQUE NOT NULL,
   capacity INT NOT NULL,
   occupied_count INT NOT NULL DEFAULT 0,
@@ -64,7 +64,7 @@ CREATE TABLE chat_messages (
   sender_id UUID NOT NULL REFERENCES users(id),
   sender_name VARCHAR(120) NOT NULL,
   text TEXT,
-  image_url VARCHAR(500),
+  image_url TEXT,
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   CONSTRAINT chk_message_has_content CHECK (text IS NOT NULL OR image_url IS NOT NULL)
 );

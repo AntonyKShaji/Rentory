@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text as sql_text
 from sqlalchemy.orm import Session
 
 from .database import Base, engine, get_db
@@ -88,6 +88,17 @@ def _ensure_chat_membership(db: Session, group_id: str, user_id: str, role: str)
 @app.on_event("startup")
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
+    _widen_legacy_image_columns()
+
+
+def _widen_legacy_image_columns() -> None:
+    """Upgrade old Postgres schemas that still use VARCHAR(500) for image URLs."""
+    with engine.begin() as connection:
+        if connection.dialect.name != "postgresql":
+            return
+
+        connection.execute(sql_text("ALTER TABLE IF EXISTS properties ALTER COLUMN image_url TYPE TEXT"))
+        connection.execute(sql_text("ALTER TABLE IF EXISTS chat_messages ALTER COLUMN image_url TYPE TEXT"))
 
 
 @app.get("/health")
