@@ -30,7 +30,7 @@ class Property(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     unit_type: Mapped[str] = mapped_column(String(40), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     qr_code: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     occupied_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -80,7 +80,7 @@ class ChatMessage(Base):
     sender_id: Mapped[str] = mapped_column(Uuid(as_uuid=False), ForeignKey("users.id"), nullable=False)
     sender_name: Mapped[str] = mapped_column(String(120), nullable=False)
     text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
