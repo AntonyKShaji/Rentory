@@ -783,7 +783,7 @@ class _ChatPageState extends State<ChatPage> {
     final bytes = await file.readAsBytes();
     final ext = file.path.toLowerCase().endsWith('png') ? 'png' : 'jpeg';
     final dataUri = 'data:image/$ext;base64,${base64Encode(bytes)}';
-    if (dataUri.length > 1_000_000) {
+    if (dataUri.length > 1000000) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Selected image is too large. Please choose a smaller image.')),
