@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from app.database import Base, SessionLocal, engine
 from app.main import app
-from app.models import User
+from app.models import Property, User
 
 client = TestClient(app)
 
@@ -28,6 +28,38 @@ def test_health():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+def test_property_image_field_supports_long_data_uris():
+    owner_signup = client.post(
+        "/auth/owners/signup",
+        json={
+            "full_name": "Demo Owner",
+            "phone": "900000100",
+            "email": "owner-image@rentory.local",
+            "password": "1234",
+        },
+    )
+    assert owner_signup.status_code == 201
+    owner_id = owner_signup.json()["user_id"]
+
+    long_data_uri = "data:image/jpeg;base64," + ("A" * 5000)
+    create_property = client.post(
+        f"/owners/{owner_id}/properties",
+        json={
+            "location": "Kaloor",
+            "name": "Image Heavy Home",
+            "unit_type": "2BHK",
+            "capacity": 2,
+            "rent": 15000,
+            "image_url": long_data_uri,
+            "description": "Supports base64 uploads",
+        },
+    )
+
+    assert create_property.status_code == 201
+    assert create_property.json()["image_url"] == long_data_uri
+    assert Property.__table__.c.image_url.type.length is None
 
 def test_owner_and_property_flow_with_analytics_and_chat():
     owner_signup = client.post(
