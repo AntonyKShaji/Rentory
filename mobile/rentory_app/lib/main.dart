@@ -121,7 +121,8 @@ class _OwnerAuthPageState extends State<OwnerAuthPage> {
   final _name = TextEditingController(text: 'Owner');
   final _email = TextEditingController(text: 'owner@rentory.local');
   final _password = TextEditingController(text: '1234');
-  bool _isSignup = false;
+  bool _isSignup = true;
+  bool _obscurePassword = true;
   bool _loading = false;
   final Map<String, String?> _errors = {};
 
@@ -165,35 +166,124 @@ class _OwnerAuthPageState extends State<OwnerAuthPage> {
 
   @override
   Widget build(BuildContext context) {
-    return _AuthShell(
-      title: _isSignup ? 'Create Owner Account' : 'Owner Login',
-      child: Column(
-        children: [
-          if (_isSignup) ...[
-            FieldWithTopError(
-              errorText: _errors['name'],
-              child: TextField(controller: _name, decoration: const InputDecoration(labelText: 'Full name')),
+    const shellColor = Color(0xFFF2F2F2);
+    const fieldColor = Color(0xFFE9E9EE);
+    const primaryTextColor = Color(0xFF1E3363);
+    const secondaryTextColor = Color(0xFF6B7391);
+    const actionColor = Color(0xFF8CC63F);
+
+    InputDecoration _decoration({
+      required String hint,
+      required IconData icon,
+      String? error,
+    }) {
+      return InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 12, color: secondaryTextColor, fontWeight: FontWeight.w500),
+        errorText: error,
+        filled: true,
+        fillColor: fieldColor,
+        prefixIcon: Icon(icon, size: 16, color: primaryTextColor),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: primaryTextColor, width: 1.2)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: shellColor,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: shellColor,
+              borderRadius: BorderRadius.circular(26),
             ),
-            const SizedBox(height: 10),
-            FieldWithTopError(
-              errorText: _errors['email'],
-              child: TextField(controller: _email, decoration: const InputDecoration(labelText: 'Email')),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 30),
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton.filledTonal(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.chevron_left_rounded, size: 20),
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFFE8E8ED),
+                      foregroundColor: primaryTextColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 26),
+                Text(
+                  _isSignup ? 'Create your account' : 'Owner login',
+                  style: const TextStyle(
+                    fontSize: 35,
+                    fontWeight: FontWeight.w600,
+                    color: primaryTextColor,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'quis nostrud exercitation ullamco laboris nisi ut',
+                  style: TextStyle(fontSize: 12, color: secondaryTextColor, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 36),
+                if (_isSignup) ...[
+                  TextField(controller: _name, decoration: _decoration(hint: 'Full name', icon: Icons.person_outline, error: _errors['name'])),
+                  const SizedBox(height: 12),
+                  TextField(controller: _email, decoration: _decoration(hint: 'Email', icon: Icons.mail_outline, error: _errors['email'])),
+                  const SizedBox(height: 12),
+                ],
+                TextField(controller: _phone, decoration: _decoration(hint: _isSignup ? 'Phone number' : 'Email or phone', icon: Icons.phone_rounded, error: _errors['phone'])),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _password,
+                  decoration: _decoration(hint: 'Password', icon: Icons.lock_outline, error: _errors['password']),
+                  obscureText: _obscurePassword,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Terms of service', style: TextStyle(fontSize: 12, color: primaryTextColor, fontWeight: FontWeight.w600)),
+                    TextButton(
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(20, 20), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                      child: Text(_obscurePassword ? 'Show password' : 'Hide password', style: const TextStyle(fontSize: 12, color: primaryTextColor, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 52,
+                  child: FilledButton(
+                    onPressed: _loading ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: actionColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text(_isSignup ? 'Register' : 'Login'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => setState(() {
+                    _isSignup = !_isSignup;
+                    _errors.clear();
+                  }),
+                  child: Text(
+                    _isSignup ? 'Already have an account? Login' : 'Need an account? Register',
+                    style: const TextStyle(color: primaryTextColor, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-          ],
-          FieldWithTopError(
-            errorText: _errors['phone'],
-            child: TextField(controller: _phone, decoration: const InputDecoration(labelText: 'Phone')),
           ),
-          const SizedBox(height: 10),
-          FieldWithTopError(
-            errorText: _errors['password'],
-            child: TextField(controller: _password, decoration: const InputDecoration(labelText: 'Password'), obscureText: true),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(width: double.infinity, child: FilledButton(onPressed: _loading ? null : _submit, child: Text(_isSignup ? 'Create account' : 'Login'))),
-          TextButton(onPressed: () => setState(() { _isSignup = !_isSignup; _errors.clear(); }), child: Text(_isSignup ? 'Already have an account? Login' : 'New owner? Create account')),
-        ],
+        ),
       ),
     );
   }
