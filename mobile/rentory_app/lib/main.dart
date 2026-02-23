@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'models/property.dart';
 import 'services/api_service.dart';
+import 'widgets/animated_welcome_logo.dart';
 import 'widgets/app_widgets.dart';
 
 void main() {
@@ -76,9 +77,7 @@ class RoleLandingPage extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.home_work_rounded, size: 66, color: Color(0xFF15666C)),
-                    const SizedBox(height: 8),
-                    Text('Rentory', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
+                    const AnimatedWelcomeLogo(),
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
