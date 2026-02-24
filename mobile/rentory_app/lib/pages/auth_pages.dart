@@ -146,16 +146,37 @@ class _OwnerAuthPageState extends State<OwnerAuthPage> {
                   obscureText: _obscurePassword,
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Terms of service', style: TextStyle(fontSize: 12, color: primaryTextColor, fontWeight: FontWeight.w600)),
-                    TextButton(
-                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(20, 20), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                      child: Text(_obscurePassword ? 'Show password' : 'Hide password', style: const TextStyle(fontSize: 12, color: primaryTextColor, fontWeight: FontWeight.w600)),
-                    ),
-                  ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final showInline = constraints.maxWidth > 220;
+                    if (showInline) {
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Terms of service', style: TextStyle(fontSize: 12, color: primaryTextColor, fontWeight: FontWeight.w600)),
+                          TextButton(
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(20, 20), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                            child: Text(_obscurePassword ? 'Show password' : 'Hide password', style: const TextStyle(fontSize: 12, color: primaryTextColor, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      );
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Terms of service', style: TextStyle(fontSize: 12, color: primaryTextColor, fontWeight: FontWeight.w600)),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(20, 20), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                            child: Text(_obscurePassword ? 'Show password' : 'Hide password', style: const TextStyle(fontSize: 12, color: primaryTextColor, fontWeight: FontWeight.w600)),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
