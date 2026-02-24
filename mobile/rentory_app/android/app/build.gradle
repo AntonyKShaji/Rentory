@@ -6,8 +6,8 @@ plugins {
 
 android {
     namespace = "com.rentory.rentory_app"
-    // Plugin dependencies require compiling against API 36.
-    compileSdk = 36
+    // API 31+ is required for `android:postSplashScreenTheme` in values-v31 styles.
+    compileSdk = 31
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
