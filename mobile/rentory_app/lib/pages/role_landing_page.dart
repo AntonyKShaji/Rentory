@@ -21,7 +21,7 @@ class RoleLandingPage extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.home_work_rounded, size: 66, color: Color(0xFF15666C)),
+                    const Icon(Icons.home_work_rounded, size: 48, color: Color(0xFF15666C)),
                     const SizedBox(height: 8),
                     Text('Rentory', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
                     const SizedBox(height: 24),
