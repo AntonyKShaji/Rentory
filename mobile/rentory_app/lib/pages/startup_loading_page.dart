@@ -108,7 +108,7 @@ class _RentoryLogoPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final strokePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.068
+      ..strokeWidth = size.width * 0.052
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..color = Colors.white;
