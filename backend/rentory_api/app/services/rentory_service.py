@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core import messages
+from app.core.security import SecurityService
 from app.models import (
     Bill,
     ChatGroup,
@@ -46,9 +47,6 @@ from app.schemas import (
 
 
 class RentoryService:
-    @staticmethod
-    def hash_password(password: str) -> str:
-        return f"plain::{password}"
 
     @staticmethod
     def qr_code_url(qr_code: str) -> str:
@@ -86,12 +84,12 @@ class RentoryService:
             full_name=payload.full_name,
             phone=payload.phone,
             email=payload.email,
-            password_hash=self.hash_password(payload.password),
+            password_hash=SecurityService.hash_password(payload.password),
         )
         db.add(user)
         db.commit()
         db.refresh(user)
-        return LoginResponse(access_token=f"demo-token-{uuid4()}", role="owner", user_id=user.id)
+        return LoginResponse(access_token=SecurityService.create_access_token(user.id, "owner"), role="owner", user_id=user.id)
 
     def tenant_register(self, payload: TenantRegistrationRequest, db: Session) -> LoginResponse:
         property_row = db.scalar(select(Property).where(Property.qr_code == payload.qr_code))
@@ -111,7 +109,7 @@ class RentoryService:
             email=payload.email,
             documents=payload.documents,
             assigned_property_id=property_row.id,
-            password_hash=self.hash_password(payload.password),
+            password_hash=SecurityService.hash_password(payload.password),
         )
         db.add(tenant)
         db.flush()
@@ -132,7 +130,7 @@ class RentoryService:
             self.ensure_chat_membership(db, group.id, tenant.id, "tenant")
 
         db.commit()
-        return LoginResponse(access_token=f"demo-token-{uuid4()}", role="tenant", user_id=tenant.id)
+        return LoginResponse(access_token=SecurityService.create_access_token(tenant.id, "tenant"), role="tenant", user_id=tenant.id)
 
     def login(self, payload: LoginRequest, db: Session) -> LoginResponse:
         user = db.scalar(select(User).where((User.phone == payload.identifier) | (User.email == payload.identifier)))
@@ -140,9 +138,14 @@ class RentoryService:
             raise HTTPException(status_code=401, detail=messages.INVALID_CREDENTIALS)
         if user.role != payload.role:
             raise HTTPException(status_code=401, detail=messages.ROLE_MISMATCH)
-        if user.password_hash != self.hash_password(payload.password):
+        if not SecurityService.verify_password(payload.password, user.password_hash):
             raise HTTPException(status_code=401, detail=messages.INVALID_CREDENTIALS)
-        return LoginResponse(access_token=f"demo-token-{uuid4()}", role=user.role, user_id=user.id)
+
+        if user.password_hash and user.password_hash.startswith("plain::"):
+            user.password_hash = SecurityService.hash_password(payload.password)
+            db.commit()
+
+        return LoginResponse(access_token=SecurityService.create_access_token(user.id, user.role), role=user.role, user_id=user.id)
 
     def list_properties(self, owner_id: str, db: Session) -> list[PropertyCardResponse]:
         owner = db.get(User, owner_id)

@@ -55,6 +55,7 @@ class _OwnerAuthPageState extends State<OwnerAuthPage> {
       final payload = _isSignup
           ? await _api.ownerSignup(fullName: _name.text, phone: _phone.text, email: _email.text, password: _password.text)
           : await _api.login(identifier: _phone.text, password: _password.text, role: 'owner');
+      ApiService.setAccessToken(payload['access_token'] as String);
       if (!mounted) return;
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => OwnerDashboardPage(ownerId: payload['user_id'] as String)));
     } catch (e) {
@@ -254,6 +255,7 @@ class _TenantAuthPageState extends State<TenantAuthPage> {
               password: _password.text,
             )
           : await _api.login(identifier: _identifier.text, password: _password.text, role: 'tenant');
+      ApiService.setAccessToken(payload['access_token'] as String);
       if (!mounted) return;
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => TenantDashboardPage(tenantId: payload['user_id'] as String)));
     } catch (e) {

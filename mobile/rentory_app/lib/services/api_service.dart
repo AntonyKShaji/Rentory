@@ -13,7 +13,12 @@ class ApiService {
   );
 
   final http.Client _httpClient;
+  static String? _accessToken;
   String get baseUrl => _defaultBaseUrl;
+
+  static void setAccessToken(String? token) {
+    _accessToken = token;
+  }
 
   Future<bool> healthCheck() async {
     final response = await _get('/health');
@@ -182,15 +187,24 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+
+  Map<String, String> _headers() {
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (_accessToken != null && _accessToken!.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $_accessToken';
+    }
+    return headers;
+  }
+
   Future<_ApiResponse> _get(String path) async {
-    final response = await _httpClient.get(Uri.parse('$baseUrl$path'));
+    final response = await _httpClient.get(Uri.parse('$baseUrl$path'), headers: _headers());
     return _ApiResponse(statusCode: response.statusCode, body: response.body);
   }
 
   Future<_ApiResponse> _post(String path, Map<String, Object?> payload) async {
     final response = await _httpClient.post(
       Uri.parse('$baseUrl$path'),
-      headers: const {'Content-Type': 'application/json'},
+      headers: _headers(),
       body: jsonEncode(payload),
     );
     return _ApiResponse(statusCode: response.statusCode, body: response.body);
@@ -199,7 +213,7 @@ class ApiService {
   Future<_ApiResponse> _patch(String path, Map<String, Object?> payload) async {
     final response = await _httpClient.patch(
       Uri.parse('$baseUrl$path'),
-      headers: const {'Content-Type': 'application/json'},
+      headers: _headers(),
       body: jsonEncode(payload),
     );
     return _ApiResponse(statusCode: response.statusCode, body: response.body);
