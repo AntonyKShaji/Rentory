@@ -48,40 +48,43 @@ class _StartupLoadingPageState extends State<StartupLoadingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1A6A72), Color(0xFF114E55)],
+      backgroundColor: const Color(0xFF1A6A72),
+      body: SizedBox.expand(
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF1A6A72), Color(0xFF114E55)],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    const Spacer(flex: 6),
-                    const _RentoryLogoIcon(size: 92),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'rentory',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 52,
-                        fontWeight: FontWeight.w300,
-                        letterSpacing: 2,
+          child: SafeArea(
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    children: [
+                      const Spacer(flex: 6),
+                      const _RentoryLogoIcon(size: 92),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'rentory',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 52,
+                          fontWeight: FontWeight.w300,
+                          letterSpacing: 2,
+                        ),
                       ),
-                    ),
-                    const Spacer(flex: 4),
-                    _ProgressBar(activeSegment: _activeSegment),
-                    const SizedBox(height: 72),
-                  ],
+                      const Spacer(flex: 4),
+                      _ProgressBar(activeSegment: _activeSegment),
+                      const SizedBox(height: 72),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
