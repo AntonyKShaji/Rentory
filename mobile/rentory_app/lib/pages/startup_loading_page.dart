@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import 'role_landing_page.dart';
@@ -60,11 +59,12 @@ class _StartupLoadingPageState extends State<StartupLoadingPage> {
         child: SafeArea(
           child: Stack(
             children: [
-              Center(
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.home_outlined, color: Colors.white, size: 78),
+                    const Spacer(flex: 6),
+                    const _RentoryLogoIcon(size: 92),
                     const SizedBox(height: 12),
                     const Text(
                       'rentory',
@@ -75,30 +75,11 @@ class _StartupLoadingPageState extends State<StartupLoadingPage> {
                         letterSpacing: 2,
                       ),
                     ),
-                    const SizedBox(height: 52),
+                    const Spacer(flex: 4),
                     _ProgressBar(activeSegment: _activeSegment),
+                    const SizedBox(height: 72),
                   ],
                 ),
-              ),
-              const Positioned(
-                bottom: 90,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Text(
-                    'Loading...',
-                    style: TextStyle(
-                      color: Color(0xFFDCECEF),
-                      fontSize: 29,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-              ),
-              const Positioned(
-                bottom: 40,
-                right: 28,
-                child: Icon(Icons.auto_awesome, size: 44, color: Color(0xFFDCECEF)),
               ),
             ],
           ),
@@ -106,6 +87,58 @@ class _StartupLoadingPageState extends State<StartupLoadingPage> {
       ),
     );
   }
+}
+
+class _RentoryLogoIcon extends StatelessWidget {
+  const _RentoryLogoIcon({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: _RentoryLogoPainter(),
+    );
+  }
+}
+
+class _RentoryLogoPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final strokePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.068
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = Colors.white;
+
+
+    final outerPath = Path()
+      ..moveTo(size.width * 0.5, size.height * 0.2)
+      ..lineTo(size.width * 0.2, size.height * 0.46)
+      ..lineTo(size.width * 0.26, size.height * 0.46)
+      ..lineTo(size.width * 0.26, size.height * 0.78)
+      ..lineTo(size.width * 0.43, size.height * 0.78)
+      ..lineTo(size.width * 0.43, size.height * 0.59)
+      ..lineTo(size.width * 0.57, size.height * 0.59)
+      ..lineTo(size.width * 0.57, size.height * 0.78)
+      ..lineTo(size.width * 0.74, size.height * 0.78)
+      ..lineTo(size.width * 0.74, size.height * 0.46)
+      ..lineTo(size.width * 0.8, size.height * 0.46)
+      ..close();
+
+    final accentPath = Path()
+      ..moveTo(size.width * 0.43, size.height * 0.4)
+      ..lineTo(size.width * 0.5, size.height * 0.33)
+      ..lineTo(size.width * 0.57, size.height * 0.4);
+
+    canvas.drawPath(outerPath, strokePaint);
+    canvas.drawPath(accentPath, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _ProgressBar extends StatelessWidget {
