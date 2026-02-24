@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../pages/role_landing_page.dart';
+import '../pages/startup_loading_page.dart';
 
 class RentoryApp extends StatelessWidget {
   const RentoryApp({super.key});
@@ -43,7 +43,7 @@ class RentoryApp extends StatelessWidget {
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         ),
       ),
-      home: const RoleLandingPage(),
+      home: const StartupLoadingPage(),
     );
   }
 }
