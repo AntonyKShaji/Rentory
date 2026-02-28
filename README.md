@@ -76,4 +76,6 @@ flutter pub get
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 ```
 
-For iOS simulator/local desktop target, use `http://127.0.0.1:8000`.
+- Android emulator: `http://10.0.2.2:8000`
+- iOS simulator/local desktop target: `http://127.0.0.1:8000`
+- Physical phone on same Wi-Fi: `http://<your-computer-lan-ip>:8000`

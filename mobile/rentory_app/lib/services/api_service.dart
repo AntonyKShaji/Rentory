@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -7,14 +9,25 @@ import '../models/property.dart';
 class ApiService {
   ApiService({http.Client? client}) : _httpClient = client ?? http.Client();
 
-  static const String _defaultBaseUrl = String.fromEnvironment(
+  static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8000',
+    defaultValue: '',
   );
 
   final http.Client _httpClient;
   static String? _accessToken;
-  String get baseUrl => _defaultBaseUrl;
+  String get baseUrl => _resolveBaseUrls().first;
+
+  List<String> _resolveBaseUrls() {
+    if (_configuredBaseUrl.trim().isNotEmpty) {
+      return [_configuredBaseUrl.trim()];
+    }
+    return const [
+      'http://10.0.2.2:8000',
+      'http://127.0.0.1:8000',
+      'http://localhost:8000',
+    ];
+  }
 
   static void setAccessToken(String? token) {
     _accessToken = token;
@@ -197,26 +210,56 @@ class ApiService {
   }
 
   Future<_ApiResponse> _get(String path) async {
-    final response = await _httpClient.get(Uri.parse('$baseUrl$path'), headers: _headers());
-    return _ApiResponse(statusCode: response.statusCode, body: response.body);
+    return _withBaseUrlFallback(
+      path: path,
+      perform: (uri) => _httpClient.get(uri, headers: _headers()),
+    );
   }
 
   Future<_ApiResponse> _post(String path, Map<String, Object?> payload) async {
-    final response = await _httpClient.post(
-      Uri.parse('$baseUrl$path'),
-      headers: _headers(),
-      body: jsonEncode(payload),
+    return _withBaseUrlFallback(
+      path: path,
+      perform: (uri) => _httpClient.post(
+        uri,
+        headers: _headers(),
+        body: jsonEncode(payload),
+      ),
     );
-    return _ApiResponse(statusCode: response.statusCode, body: response.body);
   }
 
   Future<_ApiResponse> _patch(String path, Map<String, Object?> payload) async {
-    final response = await _httpClient.patch(
-      Uri.parse('$baseUrl$path'),
-      headers: _headers(),
-      body: jsonEncode(payload),
+    return _withBaseUrlFallback(
+      path: path,
+      perform: (uri) => _httpClient.patch(
+        uri,
+        headers: _headers(),
+        body: jsonEncode(payload),
+      ),
     );
-    return _ApiResponse(statusCode: response.statusCode, body: response.body);
+  }
+
+  Future<_ApiResponse> _withBaseUrlFallback({
+    required String path,
+    required Future<http.Response> Function(Uri uri) perform,
+  }) async {
+    final errors = <String>[];
+    for (final candidate in _resolveBaseUrls()) {
+      final uri = Uri.parse('$candidate$path');
+      try {
+        final response = await perform(uri).timeout(const Duration(seconds: 12));
+        return _ApiResponse(statusCode: response.statusCode, body: response.body);
+      } on SocketException catch (error) {
+        errors.add('$candidate: ${error.message}');
+      } on TimeoutException {
+        errors.add('$candidate: request timed out');
+      }
+    }
+
+    throw Exception(
+      'Unable to reach API server. Tried ${_resolveBaseUrls().join(', ')}. '
+      'For a real phone, run with --dart-define=API_BASE_URL=http://<your-computer-lan-ip>:8000. '
+      'Connection errors: ${errors.join(' | ')}',
+    );
   }
 }
 
