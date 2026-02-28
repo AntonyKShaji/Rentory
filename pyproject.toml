@@ -1,0 +1,11 @@
+[project]
+name = "rentory-api"
+version = "0.1.0"
+description = "Rentory API deployment metadata for Vercel Python runtime"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi==0.116.1",
+  "sqlalchemy==2.0.36",
+  "psycopg[binary]==3.2.3",
+  "httpx==0.28.1",
+]
