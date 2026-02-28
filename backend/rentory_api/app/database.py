@@ -4,10 +4,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.pool import NullPool
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+from app.core.config import settings
 
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL not set")
+DATABASE_URL = os.getenv("DATABASE_URL") or settings.database_url
 
 engine = create_engine(
     DATABASE_URL,
