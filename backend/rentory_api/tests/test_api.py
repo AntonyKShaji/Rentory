@@ -7,7 +7,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from fastapi.testclient import TestClient
 
-from app.database import Base, engine
+from app.database import Base, _normalize_database_url, engine
 from app.main import app
 from app.models import Property
 
@@ -27,6 +27,15 @@ def test_health():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+def test_database_url_normalization_uses_psycopg_driver():
+    assert _normalize_database_url("postgresql://user:pass@localhost/db") == "postgresql+psycopg://user:pass@localhost/db"
+    assert _normalize_database_url("postgres://user:pass@localhost/db") == "postgresql+psycopg://user:pass@localhost/db"
+    assert (
+        _normalize_database_url("postgresql+psycopg://user:pass@localhost/db")
+        == "postgresql+psycopg://user:pass@localhost/db"
+    )
 
 
 def test_property_image_field_supports_long_data_uris():
