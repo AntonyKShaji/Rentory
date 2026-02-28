@@ -48,43 +48,28 @@ class _StartupLoadingPageState extends State<StartupLoadingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF114E55),
-      body: SizedBox.expand(
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF1A6A72), Color(0xFF114E55)],
-            ),
-          ),
-          child: SafeArea(
-            child: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    children: [
-                      const Spacer(flex: 6),
-                      const _RentoryLogoIcon(size: 92),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'rentory',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 52,
-                          fontWeight: FontWeight.w300,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      const Spacer(flex: 4),
-                      _ProgressBar(activeSegment: _activeSegment),
-                      const SizedBox(height: 72),
-                    ],
-                  ),
+      backgroundColor: const Color(0xFF15666C),
+      body: SafeArea(
+        child: SizedBox.expand(
+          child: Column(
+            children: [
+              const Spacer(flex: 9),
+              const _RentoryLogoIcon(size: 78),
+              const SizedBox(height: 14),
+              const Text(
+                'rentory',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 60,
+                  fontWeight: FontWeight.w300,
+                  letterSpacing: 1.8,
+                  height: 1,
                 ),
-              ],
-            ),
+              ),
+              const Spacer(flex: 11),
+              _ProgressBar(activeSegment: _activeSegment),
+              const SizedBox(height: 28),
+            ],
           ),
         ),
       ),
@@ -115,7 +100,6 @@ class _RentoryLogoPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..color = Colors.white;
-
 
     final outerPath = Path()
       ..moveTo(size.width * 0.5, size.height * 0.2)
