@@ -1,0 +1,1 @@
+-r backend/rentory_api/requirements.txt
