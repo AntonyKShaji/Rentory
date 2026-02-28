@@ -53,3 +53,37 @@ uvicorn app.main:app --reload --port 8000
 - Uses `DATABASE_URL` from environment settings.
 - Tables are auto-created on startup for MVP bootstrap.
 - For production, use Alembic migrations and managed Postgres backups.
+
+## Deploy on Vercel (with Neon Postgres)
+
+This repository is a monorepo, so Vercel needs a root-level `vercel.json` and an API entrypoint at `api/index.py`.
+
+### 1) Connect repository and deploy
+
+- Import this Git repository in Vercel.
+- Keep the default framework preset as `Other`.
+- Deploy from the repository root (default).
+
+### 2) Configure Neon database
+
+- Create a Neon project/database.
+- Copy the pooled connection string.
+- In Vercel project settings, add these environment variables:
+
+```bash
+APP_ENV=production
+DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>/<db>?sslmode=require
+JWT_SECRET_KEY=<strong-random-secret>
+```
+
+If your app calls this API from a browser/mobile frontend, also set:
+
+```bash
+CORS_ORIGINS=https://your-frontend-domain.com
+```
+
+### 3) Redeploy and verify
+
+- Trigger a redeploy after saving variables.
+- Open `https://<your-vercel-domain>/health`.
+- A successful response should be HTTP 200 with `"status": "ok"`.
