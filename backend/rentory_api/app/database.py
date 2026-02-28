@@ -1,10 +1,24 @@
+import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.pool import NullPool
 
-from .core.config import settings
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(settings.database_url, future=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL not set")
+
+engine = create_engine(
+    DATABASE_URL,
+    poolclass=NullPool,  # VERY IMPORTANT for serverless
+)
+
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
 Base = declarative_base()
 
 
