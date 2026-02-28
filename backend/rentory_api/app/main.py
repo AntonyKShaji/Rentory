@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text as sql_text
 
 from app.controllers.auth_controller import router as auth_router
@@ -22,8 +23,13 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup() -> None:
-    Base.metadata.create_all(bind=engine)
-    _widen_legacy_image_columns()
+    try:
+        Base.metadata.create_all(bind=engine)
+        _widen_legacy_image_columns()
+    except SQLAlchemyError as exc:
+        # Keep the API bootable even when database connectivity is temporarily unavailable
+        # (for example, a missing DATABASE_URL in serverless preview deployments).
+        print(f"Startup database initialization skipped: {exc}")
 
 
 @app.get("/health")
