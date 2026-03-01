@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "583330288738",
+    "project_id": "rentory-17eb7",
+    "storage_bucket": "rentory-17eb7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:583330288738:android:904293e7f05267a4a8ad3b",
+        "android_client_info": {
+          "package_name": "com.rentory.rentory_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjXDNamz1R6WC53TM5gNOQVIrsFMcOFRE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
