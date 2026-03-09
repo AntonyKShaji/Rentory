@@ -1,5 +1,5 @@
-import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -23,38 +23,69 @@ class _ChatPageState extends State<ChatPage> {
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
   List<Map<String, dynamic>> _messages = [];
-  Timer? _poller;
+  WebSocket? _socket;
   bool _loading = true;
   String? _pendingImage;
 
   @override
   void initState() {
     super.initState();
-    _loadMessages();
-    _poller = Timer.periodic(const Duration(seconds: 2), (_) => _loadMessages(silent: true));
+    _connectChatSocket();
   }
 
   @override
   void dispose() {
-    _poller?.cancel();
+    _socket?.close();
     _message.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadMessages({bool silent = false}) async {
-    if (!silent) setState(() => _loading = true);
+  Future<void> _connectChatSocket() async {
+    setState(() => _loading = true);
     try {
-      final rows = await _api.getChatMessages(widget.propertyId);
+      final socket = await _api.openChatSocket(widget.propertyId);
+      if (!mounted) {
+        socket.close();
+        return;
+      }
+      _socket = socket;
+      socket.listen(_onSocketEvent, onDone: _onSocketDone, onError: (_) => _onSocketDone());
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _onSocketEvent(dynamic event) {
+    final payload = jsonDecode(event as String);
+    if (payload is! Map<String, dynamic>) return;
+
+    if (payload['type'] == 'history') {
+      final rows = (payload['messages'] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
       if (!mounted) return;
       setState(() {
         _messages = rows;
         _loading = false;
       });
       _jumpToBottom();
-    } catch (_) {
-      if (mounted && !silent) setState(() => _loading = false);
+      return;
     }
+
+    if (payload['type'] == 'message') {
+      final message = payload['message'] as Map<String, dynamic>?;
+      if (message == null || !mounted) return;
+      setState(() => _messages = [..._messages, message]);
+      _jumpToBottom();
+    }
+  }
+
+  void _onSocketDone() {
+    if (!mounted) return;
+    setState(() => _loading = false);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      _connectChatSocket();
+    });
   }
 
   Future<void> _pickChatImage() async {
@@ -82,22 +113,18 @@ class _ChatPageState extends State<ChatPage> {
     final text = _message.text.trim();
     if (text.isEmpty && _pendingImage == null) return;
 
-    final local = {
+    final payload = {
       'sender_id': widget.senderId,
-      'sender_name': 'You',
       'text': text.isEmpty ? null : text,
       'image_url': _pendingImage,
     };
-    setState(() {
-      _messages = [..._messages, local];
-      _message.clear();
-      _pendingImage = null;
-    });
-    _jumpToBottom();
 
     try {
-      await _api.sendChatMessage(propertyId: widget.propertyId, senderId: widget.senderId, text: local['text'] as String?, imageUrl: local['image_url'] as String?);
-      _loadMessages(silent: true);
+      _socket?.add(jsonEncode(payload));
+      setState(() {
+        _message.clear();
+        _pendingImage = null;
+      });
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }

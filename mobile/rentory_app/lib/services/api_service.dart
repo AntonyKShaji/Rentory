@@ -33,6 +33,22 @@ class ApiService {
     _accessToken = token;
   }
 
+  Future<WebSocket> openChatSocket(String propertyId) async {
+    final errors = <String>[];
+    for (final candidate in _resolveBaseUrls()) {
+      final uri = _buildWebSocketUri(candidate, '/properties/$propertyId/chat/ws');
+      try {
+        return await WebSocket.connect(uri.toString(), headers: _authHeaders()).timeout(const Duration(seconds: 12));
+      } on SocketException catch (error) {
+        errors.add('$candidate: ${error.message}');
+      } on TimeoutException {
+        errors.add('$candidate: request timed out');
+      }
+    }
+
+    throw Exception('Unable to connect to chat server. Tried ${_resolveBaseUrls().join(', ')}. Errors: ${errors.join(' | ')}');
+  }
+
   Future<bool> healthCheck() async {
     final response = await _get('/health');
     return response.statusCode == 200;
@@ -227,6 +243,25 @@ class ApiService {
       headers['Authorization'] = 'Bearer $_accessToken';
     }
     return headers;
+  }
+
+  Map<String, String> _authHeaders() {
+    if (_accessToken != null && _accessToken!.isNotEmpty) {
+      return {'Authorization': 'Bearer $_accessToken'};
+    }
+    return const {};
+  }
+
+  Uri _buildWebSocketUri(String baseUrl, String path) {
+    final base = Uri.parse(baseUrl);
+    final wsScheme = base.scheme == 'https' ? 'wss' : 'ws';
+    return Uri(
+      scheme: wsScheme,
+      host: base.host,
+      port: base.hasPort ? base.port : null,
+      path: path,
+      queryParameters: _accessToken == null || _accessToken!.isEmpty ? null : {'token': _accessToken!},
+    );
   }
 
   Future<_ApiResponse> _get(String path) async {
