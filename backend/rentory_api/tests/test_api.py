@@ -97,6 +97,16 @@ def test_owner_property_qr_chat_and_tenant_registration_flow():
             "rent": 25000,
             "image_url": "https://example.com/property.jpg",
             "description": "Near metro station",
+            "is_active": True,
+            "area_sqft": 1200,
+            "parking_details": "Car Parking Available",
+            "preferred_residents": "Bachelors",
+            "advance_amount": 50000,
+            "full_address": "Fort Valley - B134, Kakkanad",
+            "caretaker_enabled": True,
+            "caretaker_name": "Ravi",
+            "caretaker_contact": "9876543210",
+            "property_reference": "RENT-DWN-042",
         },
     )
     assert create_property.status_code == 201
@@ -105,6 +115,17 @@ def test_owner_property_qr_chat_and_tenant_registration_flow():
 
     detail_before_tenant = client.get(f"/properties/{property_id}", headers=owner_headers)
     assert detail_before_tenant.status_code == 200
+    assert detail_before_tenant.json()["property"]["is_active"] is True
+    assert detail_before_tenant.json()["property"]["unread_notifications"] == 0
+    assert detail_before_tenant.json()["area_sqft"] == 1200
+    assert detail_before_tenant.json()["parking_details"] == "Car Parking Available"
+    assert detail_before_tenant.json()["preferred_residents"] == "Bachelors"
+    assert detail_before_tenant.json()["advance_amount"] == 50000
+    assert detail_before_tenant.json()["full_address"] == "Fort Valley - B134, Kakkanad"
+    assert detail_before_tenant.json()["caretaker_enabled"] is True
+    assert detail_before_tenant.json()["caretaker_name"] == "Ravi"
+    assert detail_before_tenant.json()["caretaker_contact"] == "9876543210"
+    assert detail_before_tenant.json()["property_reference"] == "RENT-DWN-042"
 
     tenant_register = client.post(
         "/auth/tenants/register",
