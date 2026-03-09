@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import 'role_landing_page.dart';
@@ -48,30 +50,79 @@ class _StartupLoadingPageState extends State<StartupLoadingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF15666C),
-      body: SafeArea(
-        child: SizedBox.expand(
-          child: Column(
-            children: [
-              const Spacer(flex: 9),
-              const _RentoryLogoIcon(size: 78),
-              const SizedBox(height: 14),
-              const Text(
-                'rentory',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 60,
-                  fontWeight: FontWeight.w300,
-                  letterSpacing: 1.8,
-                  height: 1,
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF0E3F43),
+                  Color(0xFF0A2D30),
+                ],
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Center(
+              child: Container(
+                width: 430,
+                height: 430,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Color(0xCC0F6A3A),
+                      Color(0x000F6A3A),
+                    ],
+                    stops: [0.0, 1.0],
+                  ),
                 ),
               ),
-              const Spacer(flex: 11),
-              _ProgressBar(activeSegment: _activeSegment),
-              const SizedBox(height: 28),
-            ],
+            ),
           ),
-        ),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+              child: const SizedBox.shrink(),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                children: [
+                  const Spacer(flex: 10),
+                  const _RentoryLogoIcon(size: 54),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'rentory',
+                    style: TextStyle(
+                      color: Color(0xFFE7F4F4),
+                      fontSize: 32,
+                      fontWeight: FontWeight.w300,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const Spacer(flex: 8),
+                  _ProgressBar(activeSegment: _activeSegment),
+                  const Spacer(flex: 8),
+                  const Text(
+                    'Loading...',
+                    style: TextStyle(
+                      color: Color(0xCCDCEAEA),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w300,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 36),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -96,10 +147,10 @@ class _RentoryLogoPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final strokePaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.052
+      ..strokeWidth = size.width * 0.055
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
-      ..color = Colors.white;
+      ..color = const Color(0xFFE7F4F4);
 
     final outerPath = Path()
       ..moveTo(size.width * 0.5, size.height * 0.2)
@@ -136,22 +187,38 @@ class _ProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 320,
+      width: 300,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(10, (index) {
-          final isActive = index == activeSegment;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            width: isActive ? 70 : 10,
-            height: 8,
+        children: [
+          Container(
+            width: 176,
+            height: 3,
             decoration: BoxDecoration(
-              color: isActive ? Colors.white : Colors.white.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(20),
+              color: const Color(0xE6FFFFFF),
+              borderRadius: BorderRadius.circular(999),
             ),
-          );
-        }),
+          ),
+          const SizedBox(width: 8),
+          ...List.generate(
+            10,
+            (index) {
+              final isActive = index == activeSegment;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? const Color(0xBFF7FFFF)
+                      : const Color(0x667C9A9A),
+                  shape: BoxShape.circle,
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
