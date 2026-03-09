@@ -593,19 +593,16 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
               const SizedBox(height: 12),
               SurfaceCard(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('QR: ${data['property']['qr_code']}'),
-                  const SizedBox(height: 8),
-                  RemoteOrDataImage(imageRef: data['property']['qr_code_url'] as String, height: 130, width: 130),
+                  Text(widget.property.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Text(data['full_address'] as String? ?? widget.property.location, style: const TextStyle(color: Colors.black54)),
                   const SizedBox(height: 8),
                   Text('Status: ${((data['property']['is_active'] as bool?) ?? true) ? 'Active' : 'Inactive'}'),
-                  Text('Notifications: ${data['property']['unread_notifications'] ?? 0}'),
-                  Text('Chat group: ${data['chat_group_name']}'),
                   Text('Current bill: ₹${data['current_bill_amount']}'),
                   Text('Advance amount: ₹${data['advance_amount'] ?? 0}'),
                   if ((data['area_sqft'] as int?) != null) Text('Area: ${data['area_sqft']} sqft'),
                   if ((data['parking_details'] as String?) != null) Text('Parking: ${data['parking_details']}'),
                   if ((data['preferred_residents'] as String?) != null) Text('Residents: ${data['preferred_residents']}'),
-                  if ((data['full_address'] as String?) != null) Text('Location: ${data['full_address']}'),
                   Text('Caretaker enabled: ${(data['caretaker_enabled'] as bool?) ?? false ? 'Yes' : 'No'}'),
                   if ((data['caretaker_name'] as String?) != null) Text('Caretaker: ${data['caretaker_name']} (${data['caretaker_contact'] ?? '-'})'),
                   if ((data['property_reference'] as String?) != null) Text('Reference: ${data['property_reference']}'),
@@ -613,7 +610,35 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                 ]),
               ),
               const SizedBox(height: 12),
-              const Text('Tenants', style: TextStyle(fontWeight: FontWeight.w700)),
+              SurfaceCard(
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const CircleAvatar(radius: 22, child: Icon(Icons.qr_code_2)),
+                  title: const Text('Property QR Code', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: const Text('For tenant payments & access'),
+                  trailing: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Generate', style: TextStyle(fontWeight: FontWeight.w700)), SizedBox(width: 4), Icon(Icons.chevron_right)]),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PropertyQrCodePage(
+                        propertyName: widget.property.name,
+                        address: data['full_address'] as String? ?? widget.property.location,
+                        qrCodeUrl: data['property']['qr_code_url'] as String,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Current Tenants', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => CurrentTenantsPage(tenants: tenants)),
+                ),
+              ),
               ...tenants.map((tenant) => Card(
                     child: ListTile(
                       title: Text(tenant['full_name'] as String),
@@ -625,6 +650,127 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class CurrentTenantsPage extends StatelessWidget {
+  const CurrentTenantsPage({super.key, required this.tenants});
+
+  final List<Map<String, dynamic>> tenants;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Current Tenants', style: TextStyle(fontSize: 36, fontWeight: FontWeight.w700)),
+        toolbarHeight: 96,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: TextButton(
+              onPressed: () {},
+              child: const Text('Remove All', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          ...tenants.map(
+            (tenant) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: SurfaceCard(
+                child: Stack(
+                  children: [
+                    ListTile(
+                      contentPadding: const EdgeInsets.only(right: 56),
+                      leading: CircleAvatar(radius: 30, backgroundImage: NetworkImage((tenant['profile_image_url'] ?? tenant['photo_url'] ?? 'https://i.pravatar.cc/120') as String)),
+                      title: Text(tenant['full_name'] as String, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+                      subtitle: Text('${tenant['occupation'] ?? tenant['job_title'] ?? 'Tenant'}\n${tenant['phone'] ?? '-'}\n${tenant['address'] ?? tenant['full_address'] ?? 'Address not added'}'),
+                      isThreeLine: true,
+                    ),
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: TextButton(
+                        onPressed: () {},
+                        child: const Text('REMOVE', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                    const Positioned(top: 48, right: 12, child: Icon(Icons.description, color: Color(0xFF204C4F))),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 18)),
+            onPressed: () {},
+            child: const Text('Add New Tenant', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PropertyQrCodePage extends StatelessWidget {
+  const PropertyQrCodePage({super.key, required this.propertyName, required this.address, required this.qrCodeUrl});
+
+  final String propertyName;
+  final String address;
+  final String qrCodeUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Generate QR Code')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          SurfaceCard(
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(border: Border.all(color: const Color(0xFF204C4F), width: 3), borderRadius: BorderRadius.circular(16)),
+                  child: RemoteOrDataImage(imageRef: qrCodeUrl, height: 280),
+                ),
+                const SizedBox(height: 18),
+                Text(propertyName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Text(address, style: const TextStyle(color: Colors.black54, fontSize: 18), textAlign: TextAlign.center),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.download), label: const Text('Download'))),
+              const SizedBox(width: 12),
+              Expanded(child: FilledButton.icon(onPressed: () {}, icon: const Icon(Icons.share), label: const Text('Share'))),
+            ],
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.print), label: const Text('Print QR Code')),
+          const SizedBox(height: 16),
+          SurfaceCard(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Icon(Icons.info, color: Color(0xFF204C4F)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text('This QR code allows tenants to quickly access the property dashboard, report maintenance issues, or view rental agreements.'),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
