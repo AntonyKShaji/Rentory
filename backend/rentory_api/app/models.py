@@ -37,6 +37,16 @@ class Property(Base):
     rent: Mapped[float] = mapped_column(Float, nullable=False)
     current_bill_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0)
     water_bill_status: Mapped[str] = mapped_column(String(20), nullable=False, default="unpaid")
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+    area_sqft: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    parking_details: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    preferred_residents: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    advance_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0)
+    full_address: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    caretaker_enabled: Mapped[bool] = mapped_column(default=False, nullable=False)
+    caretaker_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    caretaker_contact: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    property_reference: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     owner = relationship("User", foreign_keys=[owner_id])
 

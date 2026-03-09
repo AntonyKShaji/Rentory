@@ -48,6 +48,16 @@ def _widen_legacy_image_columns() -> None:
             return
         connection.execute(sql_text("ALTER TABLE IF EXISTS properties ALTER COLUMN image_url TYPE TEXT"))
         connection.execute(sql_text("ALTER TABLE IF EXISTS chat_messages ALTER COLUMN image_url TYPE TEXT"))
+        connection.execute(sql_text("ALTER TABLE IF EXISTS properties ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE"))
+        connection.execute(sql_text("ALTER TABLE IF EXISTS properties ADD COLUMN IF NOT EXISTS area_sqft INTEGER"))
+        connection.execute(sql_text("ALTER TABLE IF EXISTS properties ADD COLUMN IF NOT EXISTS parking_details VARCHAR(120)"))
+        connection.execute(sql_text("ALTER TABLE IF EXISTS properties ADD COLUMN IF NOT EXISTS preferred_residents VARCHAR(120)"))
+        connection.execute(sql_text("ALTER TABLE IF EXISTS properties ADD COLUMN IF NOT EXISTS advance_amount DOUBLE PRECISION NOT NULL DEFAULT 0"))
+        connection.execute(sql_text("ALTER TABLE IF EXISTS properties ADD COLUMN IF NOT EXISTS full_address VARCHAR(240)"))
+        connection.execute(sql_text("ALTER TABLE IF EXISTS properties ADD COLUMN IF NOT EXISTS caretaker_enabled BOOLEAN NOT NULL DEFAULT FALSE"))
+        connection.execute(sql_text("ALTER TABLE IF EXISTS properties ADD COLUMN IF NOT EXISTS caretaker_name VARCHAR(120)"))
+        connection.execute(sql_text("ALTER TABLE IF EXISTS properties ADD COLUMN IF NOT EXISTS caretaker_contact VARCHAR(30)"))
+        connection.execute(sql_text("ALTER TABLE IF EXISTS properties ADD COLUMN IF NOT EXISTS property_reference VARCHAR(64)"))
 
 
 app.include_router(auth_router)

@@ -159,7 +159,7 @@ class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
           RemoteOrDataImage(imageRef: property.imageUrl, height: 140, borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
           ListTile(
             title: Text(property.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text('${property.location} • ${property.occupiedCount}/${property.capacity} tenants'),
+            subtitle: Text('${property.location} • ${property.occupiedCount}/${property.capacity} tenants • ${property.unreadNotifications} alerts'),
             trailing: Text('₹${property.rent.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
         ]),
@@ -204,39 +204,88 @@ class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
       );
 }
 
-class AllPropertiesPage extends StatelessWidget {
+class AllPropertiesPage extends StatefulWidget {
   const AllPropertiesPage({super.key, required this.ownerId, required this.properties});
 
   final String ownerId;
   final List<Property> properties;
 
   @override
+  State<AllPropertiesPage> createState() => _AllPropertiesPageState();
+}
+
+class _AllPropertiesPageState extends State<AllPropertiesPage> {
+  final ApiService _api = ApiService();
+  late Future<List<Property>> _properties;
+
+  @override
+  void initState() {
+    super.initState();
+    _properties = _api.listOwnerProperties(widget.ownerId);
+  }
+
+  Future<void> _reload() async {
+    setState(() => _properties = _api.listOwnerProperties(widget.ownerId));
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('All Properties')),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: properties.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final property = properties[index];
-          return SurfaceCard(
-            padding: EdgeInsets.zero,
-            child: ListTile(
-              leading: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: RemoteOrDataImage(imageRef: property.imageUrl, width: 64, height: 64),
-              ),
-              title: Text(property.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text('${property.location} • ${property.occupiedCount}/${property.capacity} tenants'),
-              trailing: Text('₹${property.rent.toStringAsFixed(0)}'),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => PropertyDetailsPage(property: property, ownerId: ownerId)),
-              ),
-            ),
-          );
-        },
+      appBar: AppBar(
+        title: const Text('All Properties'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_home_work_outlined),
+            onPressed: () async {
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => AddPropertyPage(ownerId: widget.ownerId)));
+              _reload();
+            },
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _reload,
+        child: FutureBuilder<List<Property>>(
+          future: _properties,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+            final properties = snapshot.data!;
+            return ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: properties.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final property = properties[index];
+                return SurfaceCard(
+                  padding: EdgeInsets.zero,
+                  child: ListTile(
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: RemoteOrDataImage(imageRef: property.imageUrl, width: 64, height: 64),
+                    ),
+                    title: Row(
+                      children: [
+                        Expanded(child: Text(property.name, style: const TextStyle(fontWeight: FontWeight.w700))),
+                        if (property.unreadNotifications > 0)
+                          CircleAvatar(
+                            radius: 10,
+                            backgroundColor: Colors.red,
+                            child: Text('${property.unreadNotifications}', style: const TextStyle(color: Colors.white, fontSize: 11)),
+                          ),
+                      ],
+                    ),
+                    subtitle: Text('${property.location} • ${property.occupiedCount}/${property.capacity} tenants • ${property.isActive ? 'Active' : 'Inactive'}'),
+                    trailing: Text('₹${property.rent.toStringAsFixed(0)}'),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => PropertyDetailsPage(property: property, ownerId: widget.ownerId)),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -322,6 +371,16 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
   final _capacity = TextEditingController(text: '2');
   final _rent = TextEditingController(text: '15000');
   final _description = TextEditingController();
+  final _areaSqft = TextEditingController();
+  final _parkingDetails = TextEditingController();
+  final _preferredResidents = TextEditingController();
+  final _advanceAmount = TextEditingController(text: '0');
+  final _fullAddress = TextEditingController();
+  final _caretakerName = TextEditingController();
+  final _caretakerContact = TextEditingController();
+  final _propertyReference = TextEditingController();
+  bool _isActive = true;
+  bool _caretakerEnabled = false;
   final ImagePicker _picker = ImagePicker();
   String? _imageDataUri;
   final Map<String, String?> _errors = {};
@@ -343,6 +402,10 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
     if ((int.tryParse(_capacity.text.trim()) ?? 0) <= 0) nextErrors['capacity'] = 'Capacity must be greater than 0';
     if ((double.tryParse(_rent.text.trim()) ?? 0) <= 0) nextErrors['rent'] = 'Rent must be greater than 0';
     if (_description.text.trim().isEmpty) nextErrors['description'] = 'Description is required';
+    if (_areaSqft.text.trim().isNotEmpty && (int.tryParse(_areaSqft.text.trim()) ?? 0) <= 0) nextErrors['area'] = 'Area must be greater than 0';
+    if ((double.tryParse(_advanceAmount.text.trim()) ?? -1) < 0) nextErrors['advance'] = 'Advance cannot be negative';
+    if (_caretakerEnabled && _caretakerName.text.trim().isEmpty) nextErrors['caretaker_name'] = 'Caretaker name is required';
+    if (_caretakerEnabled && _caretakerContact.text.trim().isEmpty) nextErrors['caretaker_contact'] = 'Caretaker contact is required';
     setState(() {
       _errors
         ..clear()
@@ -363,6 +426,16 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
         rent: double.tryParse(_rent.text) ?? 0,
         imageUrl: _imageDataUri!,
         description: _description.text,
+        isActive: _isActive,
+        areaSqft: int.tryParse(_areaSqft.text.trim()),
+        parkingDetails: _parkingDetails.text.trim().isEmpty ? null : _parkingDetails.text.trim(),
+        preferredResidents: _preferredResidents.text.trim().isEmpty ? null : _preferredResidents.text.trim(),
+        advanceAmount: double.tryParse(_advanceAmount.text.trim()) ?? 0,
+        fullAddress: _fullAddress.text.trim().isEmpty ? null : _fullAddress.text.trim(),
+        caretakerEnabled: _caretakerEnabled,
+        caretakerName: _caretakerName.text.trim().isEmpty ? null : _caretakerName.text.trim(),
+        caretakerContact: _caretakerContact.text.trim().isEmpty ? null : _caretakerContact.text.trim(),
+        propertyReference: _propertyReference.text.trim().isEmpty ? null : _propertyReference.text.trim(),
       );
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -419,6 +492,49 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
             errorText: _errors['description'],
             child: TextField(controller: _description, decoration: const InputDecoration(labelText: 'Description')),
           ),
+          const SizedBox(height: 10),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Listing Active'),
+            value: _isActive,
+            onChanged: (value) => setState(() => _isActive = value),
+          ),
+          const SizedBox(height: 10),
+          FieldWithTopError(
+            errorText: _errors['area'],
+            child: TextField(controller: _areaSqft, decoration: const InputDecoration(labelText: 'Area (sqft)')),
+          ),
+          const SizedBox(height: 10),
+          TextField(controller: _parkingDetails, decoration: const InputDecoration(labelText: 'Parking details')),
+          const SizedBox(height: 10),
+          TextField(controller: _preferredResidents, decoration: const InputDecoration(labelText: 'Preferred residents')),
+          const SizedBox(height: 10),
+          FieldWithTopError(
+            errorText: _errors['advance'],
+            child: TextField(controller: _advanceAmount, decoration: const InputDecoration(labelText: 'Advance amount')),
+          ),
+          const SizedBox(height: 10),
+          TextField(controller: _fullAddress, decoration: const InputDecoration(labelText: 'Full address')),
+          const SizedBox(height: 10),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Enable caretaker'),
+            value: _caretakerEnabled,
+            onChanged: (value) => setState(() => _caretakerEnabled = value),
+          ),
+          if (_caretakerEnabled) ...[
+            FieldWithTopError(
+              errorText: _errors['caretaker_name'],
+              child: TextField(controller: _caretakerName, decoration: const InputDecoration(labelText: 'Caretaker name')),
+            ),
+            const SizedBox(height: 10),
+            FieldWithTopError(
+              errorText: _errors['caretaker_contact'],
+              child: TextField(controller: _caretakerContact, decoration: const InputDecoration(labelText: 'Caretaker contact')),
+            ),
+            const SizedBox(height: 10),
+          ],
+          TextField(controller: _propertyReference, decoration: const InputDecoration(labelText: 'Property reference')),
           const SizedBox(height: 16),
           FilledButton(onPressed: _submit, child: const Text('Create property')),
         ],
@@ -481,8 +597,18 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                   const SizedBox(height: 8),
                   RemoteOrDataImage(imageRef: data['property']['qr_code_url'] as String, height: 130, width: 130),
                   const SizedBox(height: 8),
+                  Text('Status: ${((data['property']['is_active'] as bool?) ?? true) ? 'Active' : 'Inactive'}'),
+                  Text('Notifications: ${data['property']['unread_notifications'] ?? 0}'),
                   Text('Chat group: ${data['chat_group_name']}'),
                   Text('Current bill: ₹${data['current_bill_amount']}'),
+                  Text('Advance amount: ₹${data['advance_amount'] ?? 0}'),
+                  if ((data['area_sqft'] as int?) != null) Text('Area: ${data['area_sqft']} sqft'),
+                  if ((data['parking_details'] as String?) != null) Text('Parking: ${data['parking_details']}'),
+                  if ((data['preferred_residents'] as String?) != null) Text('Residents: ${data['preferred_residents']}'),
+                  if ((data['full_address'] as String?) != null) Text('Location: ${data['full_address']}'),
+                  Text('Caretaker enabled: ${(data['caretaker_enabled'] as bool?) ?? false ? 'Yes' : 'No'}'),
+                  if ((data['caretaker_name'] as String?) != null) Text('Caretaker: ${data['caretaker_name']} (${data['caretaker_contact'] ?? '-'})'),
+                  if ((data['property_reference'] as String?) != null) Text('Reference: ${data['property_reference']}'),
                   Row(children: [Text('Water bill: ${data['water_bill_status']}'), TextButton(onPressed: () => _toggleWaterBill(data['water_bill_status'] as String), child: const Text('Toggle'))]),
                 ]),
               ),

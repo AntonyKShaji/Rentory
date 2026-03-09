@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class LoginRequest(BaseModel):
@@ -41,6 +41,22 @@ class PropertyCreateRequest(BaseModel):
     rent: float = Field(gt=0)
     image_url: str
     description: str | None = None
+    is_active: bool = True
+    area_sqft: int | None = Field(default=None, gt=0)
+    parking_details: str | None = None
+    preferred_residents: str | None = None
+    advance_amount: float = Field(default=0, ge=0)
+    full_address: str | None = None
+    caretaker_enabled: bool = False
+    caretaker_name: str | None = None
+    caretaker_contact: str | None = None
+    property_reference: str | None = None
+
+    @model_validator(mode="after")
+    def validate_caretaker(self) -> "PropertyCreateRequest":
+        if self.caretaker_enabled and (not self.caretaker_name or not self.caretaker_contact):
+            raise ValueError("caretaker_name and caretaker_contact are required when caretaker_enabled is true")
+        return self
 
 
 class PropertyCardResponse(BaseModel):
@@ -55,6 +71,8 @@ class PropertyCardResponse(BaseModel):
     image_url: str | None
     qr_code: str
     qr_code_url: str
+    is_active: bool
+    unread_notifications: int
 
 
 class OwnerAnalyticsResponse(BaseModel):
@@ -79,6 +97,15 @@ class PropertyDetailsResponse(BaseModel):
     owner_phone: str
     chat_group_name: str
     tenants: list[TenantSummaryResponse]
+    area_sqft: int | None
+    parking_details: str | None
+    preferred_residents: str | None
+    advance_amount: float
+    full_address: str | None
+    caretaker_enabled: bool
+    caretaker_name: str | None
+    caretaker_contact: str | None
+    property_reference: str | None
 
 
 class TenantDetailsResponse(BaseModel):

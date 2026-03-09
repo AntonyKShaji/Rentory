@@ -53,7 +53,7 @@ class RentoryService:
         return f"https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={quote(qr_code)}"
 
     @classmethod
-    def property_card(cls, row: Property) -> PropertyCardResponse:
+    def property_card(cls, row: Property, unread_notifications: int = 0) -> PropertyCardResponse:
         return PropertyCardResponse(
             id=row.id,
             owner_id=row.owner_id,
@@ -66,6 +66,8 @@ class RentoryService:
             image_url=row.image_url,
             qr_code=row.qr_code,
             qr_code_url=cls.qr_code_url(row.qr_code),
+            is_active=row.is_active,
+            unread_notifications=unread_notifications,
         )
 
     @staticmethod
@@ -152,7 +154,19 @@ class RentoryService:
         if owner is None or owner.role != "owner":
             raise HTTPException(status_code=404, detail=messages.OWNER_NOT_FOUND)
         rows = db.scalars(select(Property).where(Property.owner_id == owner_id)).all()
-        return [self.property_card(row) for row in rows]
+        if not rows:
+            return []
+
+        notification_counts = {
+            property_id: count
+            for property_id, count in db.execute(
+                select(Notification.property_id, func.count(Notification.id))
+                .where(Notification.owner_id == owner_id)
+                .where(Notification.property_id.is_not(None))
+                .group_by(Notification.property_id)
+            ).all()
+        }
+        return [self.property_card(row, unread_notifications=notification_counts.get(row.id, 0)) for row in rows]
 
     def owner_analytics(self, owner_id: str, db: Session) -> OwnerAnalyticsResponse:
         owner = db.get(User, owner_id)
@@ -195,6 +209,16 @@ class RentoryService:
             rent=payload.rent,
             current_bill_amount=payload.rent,
             water_bill_status="unpaid",
+            is_active=payload.is_active,
+            area_sqft=payload.area_sqft,
+            parking_details=payload.parking_details,
+            preferred_residents=payload.preferred_residents,
+            advance_amount=payload.advance_amount,
+            full_address=payload.full_address,
+            caretaker_enabled=payload.caretaker_enabled,
+            caretaker_name=payload.caretaker_name,
+            caretaker_contact=payload.caretaker_contact,
+            property_reference=payload.property_reference,
         )
         db.add(property_row)
         db.flush()
@@ -221,13 +245,26 @@ class RentoryService:
             .where(PropertyTenant.property_id == property_id)
         ).all()
 
+        unread_notifications = db.scalar(
+            select(func.count(Notification.id)).where(Notification.owner_id == row.owner_id, Notification.property_id == property_id)
+        )
+
         return PropertyDetailsResponse(
-            property=self.property_card(row),
+            property=self.property_card(row, unread_notifications=unread_notifications or 0),
             description=row.description,
             current_bill_amount=row.current_bill_amount,
             water_bill_status=row.water_bill_status,
             owner_phone=owner.phone if owner else "",
             chat_group_name=chat_group.group_name if chat_group else row.name,
+            area_sqft=row.area_sqft,
+            parking_details=row.parking_details,
+            preferred_residents=row.preferred_residents,
+            advance_amount=row.advance_amount,
+            full_address=row.full_address,
+            caretaker_enabled=row.caretaker_enabled,
+            caretaker_name=row.caretaker_name,
+            caretaker_contact=row.caretaker_contact,
+            property_reference=row.property_reference,
             tenants=[
                 TenantSummaryResponse(
                     join_id=t.id,
