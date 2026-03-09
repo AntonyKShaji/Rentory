@@ -21,6 +21,7 @@ class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
   final ApiService _api = ApiService();
   late Future<List<Property>> _properties;
   late Future<Map<String, dynamic>> _analytics;
+  int _selectedTab = 0;
 
   @override
   void initState() {
@@ -85,28 +86,109 @@ class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
                     ]),
                   );
                 }
+                final previewProperties = properties.take(4).toList();
                 return Column(
-                  children: properties
-                      .map((property) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: SurfaceCard(
-                              padding: EdgeInsets.zero,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(20),
-                                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PropertyDetailsPage(property: property, ownerId: widget.ownerId))),
-                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  RemoteOrDataImage(imageRef: property.imageUrl, height: 170, borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-                                  ListTile(
-                                    title: Text(property.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                                    subtitle: Text('${property.location} • ${property.occupiedCount}/${property.capacity} tenants'),
-                                    trailing: Text('₹${property.rent.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                                  ),
-                                ]),
-                              ),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Properties', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                        TextButton(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AllPropertiesPage(ownerId: widget.ownerId, properties: properties),
                             ),
-                          ))
-                      .toList(),
+                          ),
+                          child: const Text('See All'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: previewProperties
+                            .map((property) => Padding(
+                                  padding: const EdgeInsets.only(right: 12),
+                                  child: SizedBox(
+                                    width: 240,
+                                    child: _propertyCard(property),
+                                  ),
+                                ))
+                            .toList(),
+                      ),
+                    ),
+                  ],
                 );
+              },
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedTab,
+        onDestinationSelected: (index) {
+          setState(() => _selectedTab = index);
+          if (index == 1) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => OwnerHistoryPage(ownerId: widget.ownerId)));
+          } else if (index == 2) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => OwnerChatGroupsPage(ownerId: widget.ownerId)));
+          } else if (index == 3) {
+            _showMenuSheet();
+          }
+        },
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.history), label: 'History'),
+          NavigationDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble), label: 'Chat'),
+          NavigationDestination(icon: Icon(Icons.menu), label: 'Menu'),
+        ],
+      ),
+    );
+  }
+
+  Widget _propertyCard(Property property) {
+    return SurfaceCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PropertyDetailsPage(property: property, ownerId: widget.ownerId))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          RemoteOrDataImage(imageRef: property.imageUrl, height: 140, borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
+          ListTile(
+            title: Text(property.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text('${property.location} • ${property.occupiedCount}/${property.capacity} tenants'),
+            trailing: Text('₹${property.rent.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  void _showMenuSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.add_home_work_outlined),
+              title: const Text('Add Property'),
+              onTap: () async {
+                Navigator.pop(context);
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => AddPropertyPage(ownerId: widget.ownerId)));
+                _reload();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.forum_outlined),
+              title: const Text('Chat Groups'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => OwnerChatGroupsPage(ownerId: widget.ownerId)));
               },
             ),
           ],
@@ -120,6 +202,108 @@ class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
         decoration: BoxDecoration(color: const Color(0xFFF0F6F7), borderRadius: BorderRadius.circular(12)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 12)), Text(value, style: const TextStyle(fontWeight: FontWeight.w700))]),
       );
+}
+
+class AllPropertiesPage extends StatelessWidget {
+  const AllPropertiesPage({super.key, required this.ownerId, required this.properties});
+
+  final String ownerId;
+  final List<Property> properties;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('All Properties')),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: properties.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final property = properties[index];
+          return SurfaceCard(
+            padding: EdgeInsets.zero,
+            child: ListTile(
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: RemoteOrDataImage(imageRef: property.imageUrl, width: 64, height: 64),
+              ),
+              title: Text(property.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text('${property.location} • ${property.occupiedCount}/${property.capacity} tenants'),
+              trailing: Text('₹${property.rent.toStringAsFixed(0)}'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => PropertyDetailsPage(property: property, ownerId: ownerId)),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class OwnerHistoryPage extends StatelessWidget {
+  const OwnerHistoryPage({super.key, required this.ownerId});
+  final String ownerId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('History')),
+      body: const Center(
+        child: Text('History section is reserved for payment and activity logs.'),
+      ),
+    );
+  }
+}
+
+class OwnerChatGroupsPage extends StatelessWidget {
+  const OwnerChatGroupsPage({super.key, required this.ownerId});
+  final String ownerId;
+
+  @override
+  Widget build(BuildContext context) {
+    final api = ApiService();
+    return Scaffold(
+      appBar: AppBar(title: const Text('Chat Groups')),
+      body: FutureBuilder<List<Property>>(
+        future: api.listOwnerProperties(ownerId),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final groups = snapshot.data!;
+          if (groups.isEmpty) {
+            return const Center(child: Text('No properties available for chats yet.'));
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemBuilder: (context, index) {
+              final property = groups[index];
+              return SurfaceCard(
+                child: ListTile(
+                  leading: const CircleAvatar(child: Icon(Icons.group_outlined)),
+                  title: Text(property.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: Text('Group chat for ${property.location}'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatPage(
+                        propertyId: property.id,
+                        propertyName: property.name,
+                        senderId: ownerId,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemCount: groups.length,
+          );
+        },
+      ),
+    );
+  }
 }
 
 class AddPropertyPage extends StatefulWidget {
