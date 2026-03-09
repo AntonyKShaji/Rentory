@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/property.dart';
 import '../services/api_service.dart';
+import '../services/owner_profile_store.dart';
 import '../widgets/app_widgets.dart';
 import 'chat_page.dart';
 import 'tenant_pages.dart';
@@ -37,8 +38,38 @@ class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    final profile = OwnerProfileStore.getByOwnerId(widget.ownerId);
     return Scaffold(
-      appBar: AppBar(title: const Text('Owner Dashboard')),
+      appBar: AppBar(
+        title: const Text('Owner Dashboard'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: IconButton(
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => OwnerProfilePage(ownerId: widget.ownerId)),
+                );
+                if (!context.mounted) return;
+                setState(() {});
+              },
+              icon: CircleAvatar(
+                radius: 16,
+                backgroundColor: const Color(0xFF204C4F),
+                child: ClipOval(
+                  child: RemoteOrDataImage(
+                    imageRef: profile.avatarImage,
+                    width: 32,
+                    height: 32,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           await Navigator.push(context, MaterialPageRoute(builder: (_) => AddPropertyPage(ownerId: widget.ownerId)));
@@ -327,9 +358,20 @@ class OwnerChatGroupsPage extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             itemBuilder: (context, index) {
               final property = groups[index];
+              final profile = OwnerProfileStore.getByOwnerId(ownerId);
               return SurfaceCard(
                 child: ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.group_outlined)),
+                  leading: CircleAvatar(
+                    backgroundColor: const Color(0x1A204C4F),
+                    child: ClipOval(
+                      child: RemoteOrDataImage(
+                        imageRef: profile.avatarImage,
+                        width: 36,
+                        height: 36,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
                   title: Text(property.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                   subtitle: Text('Group chat for ${property.location}'),
                   trailing: const Icon(Icons.chevron_right),
@@ -351,6 +393,215 @@ class OwnerChatGroupsPage extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class OwnerProfilePage extends StatefulWidget {
+  const OwnerProfilePage({super.key, required this.ownerId});
+
+  final String ownerId;
+
+  @override
+  State<OwnerProfilePage> createState() => _OwnerProfilePageState();
+}
+
+class _OwnerProfilePageState extends State<OwnerProfilePage> {
+  final ImagePicker _picker = ImagePicker();
+  late OwnerProfile _profile;
+  bool _twoFactorEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _profile = OwnerProfileStore.getByOwnerId(widget.ownerId);
+  }
+
+  Future<void> _pickAvatar() async {
+    final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 65, maxWidth: 960, maxHeight: 960);
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    final ext = file.path.toLowerCase().endsWith('png') ? 'png' : 'jpeg';
+    final dataUri = 'data:image/$ext;base64,${base64Encode(bytes)}';
+    final updated = _profile.copyWith(avatarImage: dataUri);
+    OwnerProfileStore.update(widget.ownerId, updated);
+    setState(() => _profile = updated);
+  }
+
+  void _info(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: () => _info('Notifications feature is coming soon.'),
+            icon: const Icon(Icons.notifications),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+        children: [
+          Column(
+            children: [
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 56,
+                    backgroundColor: Colors.white,
+                    child: ClipOval(
+                      child: RemoteOrDataImage(
+                        imageRef: _profile.avatarImage,
+                        width: 108,
+                        height: 108,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: IconButton.filled(
+                      style: IconButton.styleFrom(backgroundColor: const Color(0xFF204C4F)),
+                      onPressed: _pickAvatar,
+                      icon: const Icon(Icons.edit),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(_profile.fullName, style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w700)),
+              Text(_profile.roleLabel.toUpperCase(), style: const TextStyle(letterSpacing: 3, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                children: [
+                  Chip(label: Text(_profile.memberBadge)),
+                  Chip(label: Text(_profile.memberSince)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _header('Account Information'),
+          SurfaceCard(
+            child: Column(
+              children: [
+                _infoTile(Icons.person, 'Full Name', _profile.fullName),
+                const Divider(height: 16),
+                _infoTile(Icons.mail, 'Email Address', _profile.email),
+                const Divider(height: 16),
+                _infoTile(Icons.phone, 'Phone Number', _profile.phone),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _header('Asset Overview'),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: const Color(0xFF16565A), borderRadius: BorderRadius.circular(18)),
+            child: Row(
+              children: [
+                const CircleAvatar(radius: 24, backgroundColor: Color(0x338DB4B7), child: Icon(Icons.domain, color: Colors.white)),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('TOTAL PORTFOLIO', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
+                      Text('5 Properties', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF204C4F)),
+                  onPressed: () => _info('Navigating to all properties...'),
+                  child: const Text('View All'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _header('Security & Access'),
+          SurfaceCard(
+            child: Column(
+              children: [
+                ListTile(leading: const Icon(Icons.lock, color: Color(0xFF204C4F)), title: const Text('Change Password'), trailing: const Icon(Icons.chevron_right), onTap: () => _info('Change password flow is coming soon.')),
+                ListTile(
+                  leading: const Icon(Icons.verified_user, color: Color(0xFF204C4F)),
+                  title: const Text('Two-Factor Authentication'),
+                  trailing: Switch(value: _twoFactorEnabled, onChanged: (value) => setState(() => _twoFactorEnabled = value)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _header('Preferences'),
+          SurfaceCard(
+            child: Column(
+              children: [
+                ListTile(leading: const Icon(Icons.language, color: Color(0xFF204C4F)), title: const Text('App Language'), trailing: const Text('English (US)'), onTap: () => _info('Language settings will be configurable soon.')),
+                ListTile(leading: const Icon(Icons.notifications_active, color: Color(0xFF204C4F)), title: const Text('Notification Settings'), trailing: const Icon(Icons.chevron_right), onTap: () => _info('Notification settings will be configurable soon.')),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          _header('Resources'),
+          SurfaceCard(
+            child: Column(
+              children: [
+                ListTile(leading: const Icon(Icons.help, color: Color(0xFF204C4F)), title: const Text('Help Center'), onTap: () => _info('Help center will be available soon.')),
+                ListTile(leading: const Icon(Icons.policy, color: Color(0xFF204C4F)), title: const Text('Privacy Policy'), onTap: () => _info('Privacy policy page will be available soon.')),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), foregroundColor: Colors.red),
+            onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+            icon: const Icon(Icons.logout),
+            label: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(height: 20),
+          const Center(child: Text('RENTORY PREMIUM V2.4.1', style: TextStyle(letterSpacing: 3, color: Colors.blueGrey, fontSize: 10))),
+        ],
+      ),
+    );
+  }
+
+  Widget _header(String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+      child: Text(label.toUpperCase(), style: const TextStyle(color: Color(0xFF5B6F92), fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+    );
+  }
+
+  Widget _infoTile(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(color: const Color(0xFFE4ECED), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, color: const Color(0xFF204C4F)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(color: Color(0xFF94A2BA))),
+              Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
