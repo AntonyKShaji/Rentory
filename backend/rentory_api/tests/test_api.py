@@ -271,3 +271,107 @@ def test_forbidden_without_token():
 
     response = client.get(f"/owners/{owner_id}/properties")
     assert response.status_code == 403
+
+
+def test_owner_notifications_filter_search_and_mark_read_flow():
+    owner_signup = client.post(
+        "/auth/owners/signup",
+        json={
+            "full_name": "Notify Owner",
+            "phone": "900000333",
+            "email": "notify-owner@rentory.local",
+            "password": "1234",
+        },
+    )
+    owner_id = owner_signup.json()["user_id"]
+    owner_headers = auth_headers(owner_signup.json()["access_token"])
+
+    create_a = client.post(
+        f"/owners/{owner_id}/properties",
+        headers=owner_headers,
+        json={
+            "location": "Kakkanad",
+            "name": "Skyline Apt",
+            "unit_type": "2BHK",
+            "capacity": 2,
+            "rent": 22000,
+            "image_url": "https://example.com/a.jpg",
+            "description": "A",
+        },
+    )
+    property_a = create_a.json()["id"]
+
+    create_b = client.post(
+        f"/owners/{owner_id}/properties",
+        headers=owner_headers,
+        json={
+            "location": "Palarivattom",
+            "name": "City Nest",
+            "unit_type": "1BHK",
+            "capacity": 2,
+            "rent": 18000,
+            "image_url": "https://example.com/b.jpg",
+            "description": "B",
+        },
+    )
+    property_b = create_b.json()["id"]
+
+    client.post(
+        "/notifications/broadcast",
+        headers=owner_headers,
+        json={
+            "owner_id": owner_id,
+            "title": "Rent Received - Skyline Apt",
+            "body": "Unit 4B paid rent",
+            "category": "payment",
+            "property_ids": [property_a],
+        },
+    )
+    client.post(
+        "/notifications/broadcast",
+        headers=owner_headers,
+        json={
+            "owner_id": owner_id,
+            "title": "Maintenance Request",
+            "body": "Leak in kitchen sink",
+            "category": "maintenance",
+            "property_ids": [property_a],
+        },
+    )
+    client.post(
+        "/notifications/broadcast",
+        headers=owner_headers,
+        json={
+            "owner_id": owner_id,
+            "title": "Document Uploaded",
+            "body": "Updated renters insurance",
+            "category": "general",
+            "property_ids": [property_b],
+        },
+    )
+
+    all_notifications = client.get(f"/owners/{owner_id}/notifications", headers=owner_headers)
+    assert all_notifications.status_code == 200
+    assert len(all_notifications.json()["items"]) == 3
+
+    property_only = client.get(f"/owners/{owner_id}/notifications?property_id={property_a}", headers=owner_headers)
+    assert property_only.status_code == 200
+    assert len(property_only.json()["items"]) == 2
+
+    maintenance_only = client.get(f"/owners/{owner_id}/notifications?category=maintenance", headers=owner_headers)
+    assert maintenance_only.status_code == 200
+    assert len(maintenance_only.json()["items"]) == 1
+
+    searched = client.get(f"/owners/{owner_id}/notifications?search=rent", headers=owner_headers)
+    assert searched.status_code == 200
+    assert len(searched.json()["items"]) == 2
+
+    mark_property = client.patch(f"/owners/{owner_id}/notifications/mark-read?property_id={property_a}", headers=owner_headers)
+    assert mark_property.status_code == 200
+    assert mark_property.json()["updated"] == 2
+
+    owner_properties = client.get(f"/owners/{owner_id}/properties", headers=owner_headers)
+    assert owner_properties.status_code == 200
+    by_id = {item["id"]: item for item in owner_properties.json()}
+    assert by_id[property_a]["unread_notifications"] == 0
+    assert by_id[property_b]["unread_notifications"] == 1

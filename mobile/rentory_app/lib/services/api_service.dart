@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../models/notification_item.dart';
 import '../models/property.dart';
 
 class ApiService {
@@ -178,6 +179,50 @@ class ApiService {
     return Property.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
+
+
+  Future<Map<String, dynamic>> getOwnerNotifications({
+    required String ownerId,
+    String? propertyId,
+    String category = 'all',
+    String? search,
+  }) async {
+    final query = <String, String>{'category': category};
+    if (propertyId != null && propertyId.isNotEmpty) query['property_id'] = propertyId;
+    if (search != null && search.trim().isNotEmpty) query['search'] = search.trim();
+    final response = await _get('/owners/$ownerId/notifications', query: query);
+    if (response.statusCode != 200) {
+      throw Exception('Failed to fetch notifications (${response.statusCode})');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<List<NotificationItem>> listOwnerNotifications({
+    required String ownerId,
+    String? propertyId,
+    String category = 'all',
+    String? search,
+  }) async {
+    final payload = await getOwnerNotifications(
+      ownerId: ownerId,
+      propertyId: propertyId,
+      category: category,
+      search: search,
+    );
+    final items = (payload['items'] as List<dynamic>? ?? const []);
+    return items.map((item) => NotificationItem.fromJson(item as Map<String, dynamic>)).toList();
+  }
+
+  Future<int> markOwnerNotificationsRead({required String ownerId, String? propertyId}) async {
+    final query = <String, String>{};
+    if (propertyId != null && propertyId.isNotEmpty) query['property_id'] = propertyId;
+    final response = await _patch('/owners/$ownerId/notifications/mark-read', const {}, query: query);
+    if (response.statusCode != 200) {
+      throw Exception('Failed to mark notifications read (${response.statusCode})');
+    }
+    return (jsonDecode(response.body) as Map<String, dynamic>)['updated'] as int? ?? 0;
+  }
+
   Future<Map<String, dynamic>> getPropertyDetails(String propertyId) async {
     final response = await _get('/properties/$propertyId');
     if (response.statusCode != 200) {
@@ -264,16 +309,18 @@ class ApiService {
     );
   }
 
-  Future<_ApiResponse> _get(String path) async {
+  Future<_ApiResponse> _get(String path, {Map<String, String>? query}) async {
     return _withBaseUrlFallback(
       path: path,
+      query: query,
       perform: (uri) => _httpClient.get(uri, headers: _headers()),
     );
   }
 
-  Future<_ApiResponse> _post(String path, Map<String, Object?> payload) async {
+  Future<_ApiResponse> _post(String path, Map<String, Object?> payload, {Map<String, String>? query}) async {
     return _withBaseUrlFallback(
       path: path,
+      query: query,
       perform: (uri) => _httpClient.post(
         uri,
         headers: _headers(),
@@ -282,9 +329,10 @@ class ApiService {
     );
   }
 
-  Future<_ApiResponse> _patch(String path, Map<String, Object?> payload) async {
+  Future<_ApiResponse> _patch(String path, Map<String, Object?> payload, {Map<String, String>? query}) async {
     return _withBaseUrlFallback(
       path: path,
+      query: query,
       perform: (uri) => _httpClient.patch(
         uri,
         headers: _headers(),
@@ -295,11 +343,12 @@ class ApiService {
 
   Future<_ApiResponse> _withBaseUrlFallback({
     required String path,
+    Map<String, String>? query,
     required Future<http.Response> Function(Uri uri) perform,
   }) async {
     final errors = <String>[];
     for (final candidate in _resolveBaseUrls()) {
-      final uri = Uri.parse('$candidate$path');
+      final uri = Uri.parse('$candidate$path').replace(queryParameters: query == null || query.isEmpty ? null : query);
       try {
         final response = await perform(uri).timeout(const Duration(seconds: 12));
         return _ApiResponse(statusCode: response.statusCode, body: response.body);

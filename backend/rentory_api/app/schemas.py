@@ -153,12 +153,36 @@ class BroadcastCreate(BaseModel):
     owner_id: str
     title: str
     body: str
+    category: Literal["payment", "maintenance", "general"] = "general"
     property_ids: list[str] = Field(default_factory=list)
 
 
 class BroadcastResponse(BaseModel):
     queued: bool
     notification_ids: list[str]
+
+
+
+
+class NotificationResponse(BaseModel):
+    id: str
+    owner_id: str
+    property_id: str | None
+    title: str
+    body: str
+    category: Literal["payment", "maintenance", "general"]
+    is_read: bool
+    read_at: datetime | None
+    created_at: datetime
+
+
+class NotificationListResponse(BaseModel):
+    items: list[NotificationResponse]
+    unread_count: int
+
+
+class NotificationMarkReadResponse(BaseModel):
+    updated: int
 
 
 class MaintenanceCreate(BaseModel):

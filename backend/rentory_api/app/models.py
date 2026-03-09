@@ -125,6 +125,9 @@ class Notification(Base):
     property_id: Mapped[str | None] = mapped_column(Uuid(as_uuid=False), ForeignKey("properties.id"), nullable=True)
     title: Mapped[str] = mapped_column(String(160), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(String(30), nullable=False, default="general")
+    is_read: Mapped[bool] = mapped_column(default=False, nullable=False)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

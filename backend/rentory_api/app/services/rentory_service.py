@@ -31,6 +31,9 @@ from app.schemas import (
     LoginResponse,
     MaintenanceCreate,
     MaintenanceResponse,
+    NotificationListResponse,
+    NotificationMarkReadResponse,
+    NotificationResponse,
     OwnerAnalyticsResponse,
     OwnerSignupRequest,
     PaymentCreate,
@@ -163,6 +166,7 @@ class RentoryService:
                 select(Notification.property_id, func.count(Notification.id))
                 .where(Notification.owner_id == owner_id)
                 .where(Notification.property_id.is_not(None))
+                .where(Notification.is_read.is_(False))
                 .group_by(Notification.property_id)
             ).all()
         }
@@ -246,7 +250,7 @@ class RentoryService:
         ).all()
 
         unread_notifications = db.scalar(
-            select(func.count(Notification.id)).where(Notification.owner_id == row.owner_id, Notification.property_id == property_id)
+            select(func.count(Notification.id)).where(Notification.owner_id == row.owner_id, Notification.property_id == property_id, Notification.is_read.is_(False))
         )
 
         return PropertyDetailsResponse(
@@ -467,12 +471,74 @@ class RentoryService:
                 property_id=property_id,
                 title=payload.title,
                 body=payload.body,
+                category=payload.category,
             )
             db.add(notification)
             created_ids.append(notification.id)
 
         db.commit()
         return BroadcastResponse(queued=True, notification_ids=created_ids)
+
+    @staticmethod
+    def notification_item(row: Notification) -> NotificationResponse:
+        return NotificationResponse(
+            id=row.id,
+            owner_id=row.owner_id,
+            property_id=row.property_id,
+            title=row.title,
+            body=row.body,
+            category=row.category,
+            is_read=row.is_read,
+            read_at=row.read_at,
+            created_at=row.created_at,
+        )
+
+    def list_notifications(
+        self,
+        owner_id: str,
+        db: Session,
+        property_id: str | None = None,
+        category: str | None = None,
+        search: str | None = None,
+    ) -> NotificationListResponse:
+        owner = db.get(User, owner_id)
+        if owner is None or owner.role != "owner":
+            raise HTTPException(status_code=404, detail=messages.OWNER_NOT_FOUND)
+
+        query = select(Notification).where(Notification.owner_id == owner_id)
+        if property_id:
+            query = query.where(Notification.property_id == property_id)
+        if category and category != "all":
+            query = query.where(Notification.category == category)
+        if search:
+            like_term = f"%{search.strip()}%"
+            query = query.where((Notification.title.ilike(like_term)) | (Notification.body.ilike(like_term)))
+
+        rows = db.scalars(query.order_by(Notification.created_at.desc())).all()
+        unread_count = db.scalar(
+            select(func.count(Notification.id)).where(Notification.owner_id == owner_id, Notification.is_read.is_(False))
+        )
+        return NotificationListResponse(
+            items=[self.notification_item(row) for row in rows],
+            unread_count=unread_count or 0,
+        )
+
+    def mark_notifications_read(self, owner_id: str, db: Session, property_id: str | None = None) -> NotificationMarkReadResponse:
+        owner = db.get(User, owner_id)
+        if owner is None or owner.role != "owner":
+            raise HTTPException(status_code=404, detail=messages.OWNER_NOT_FOUND)
+
+        query = select(Notification).where(Notification.owner_id == owner_id, Notification.is_read.is_(False))
+        if property_id:
+            query = query.where(Notification.property_id == property_id)
+
+        rows = db.scalars(query).all()
+        for row in rows:
+            row.is_read = True
+            row.read_at = datetime.utcnow()
+
+        db.commit()
+        return NotificationMarkReadResponse(updated=len(rows))
 
     def create_maintenance(self, payload: MaintenanceCreate, db: Session) -> MaintenanceResponse:
         if db.get(Property, payload.property_id) is None:

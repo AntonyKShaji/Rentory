@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../models/notification_item.dart';
 import '../models/property.dart';
 import '../services/api_service.dart';
 import '../services/owner_profile_store.dart';
@@ -43,6 +44,13 @@ class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
       appBar: AppBar(
         title: const Text('Owner Dashboard'),
         actions: [
+          IconButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => OwnerNotificationsPage(ownerId: widget.ownerId)),
+            ),
+            icon: const Icon(Icons.notifications_none),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 10),
             child: IconButton(
@@ -826,6 +834,15 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
         title: Text(widget.property.name),
         actions: [
           IconButton(
+            icon: const Icon(Icons.notifications_none),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => OwnerNotificationsPage(ownerId: widget.ownerId, propertyId: widget.property.id, propertyName: widget.property.name),
+              ),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.chat_bubble_outline),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(propertyId: widget.property.id, propertyName: widget.property.name, senderId: widget.ownerId))),
           ),
@@ -1020,6 +1037,142 @@ class PropertyQrCodePage extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class OwnerNotificationsPage extends StatefulWidget {
+  const OwnerNotificationsPage({super.key, required this.ownerId, this.propertyId, this.propertyName});
+
+  final String ownerId;
+  final String? propertyId;
+  final String? propertyName;
+
+  @override
+  State<OwnerNotificationsPage> createState() => _OwnerNotificationsPageState();
+}
+
+class _OwnerNotificationsPageState extends State<OwnerNotificationsPage> {
+  final ApiService _api = ApiService();
+  final TextEditingController _searchController = TextEditingController();
+  final List<String> _tabs = const ['all', 'payment', 'maintenance', 'general'];
+  String _selected = 'all';
+  bool _loading = true;
+  List<NotificationItem> _items = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final items = await _api.listOwnerNotifications(
+        ownerId: widget.ownerId,
+        propertyId: widget.propertyId,
+        category: _selected,
+        search: _searchController.text,
+      );
+      if (!mounted) return;
+      setState(() => _items = items);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _markAllRead() async {
+    await _api.markOwnerNotificationsRead(ownerId: widget.ownerId, propertyId: widget.propertyId);
+    _load();
+  }
+
+  IconData _iconFor(String category) {
+    switch (category) {
+      case 'payment':
+        return Icons.payments_outlined;
+      case 'maintenance':
+        return Icons.build_outlined;
+      default:
+        return Icons.info_outline;
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.propertyName == null ? 'Notifications' : 'Notifications • ${widget.propertyName}'),
+        actions: [
+          TextButton(onPressed: _markAllRead, child: const Text('Mark all as read')),
+        ],
+      ),
+      body: Column(
+        children: [
+          SizedBox(
+            height: 56,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              scrollDirection: Axis.horizontal,
+              itemBuilder: (context, i) {
+                final tab = _tabs[i];
+                final selected = tab == _selected;
+                return ChoiceChip(
+                  selected: selected,
+                  label: Text(tab == 'all' ? 'All' : '${tab[0].toUpperCase()}${tab.substring(1)}s'),
+                  onSelected: (_) {
+                    setState(() => _selected = tab);
+                    _load();
+                  },
+                );
+              },
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemCount: _tabs.length,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: 'Search notifications...',
+                filled: true,
+                fillColor: const Color(0xFFF1F4F8),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              ),
+              onSubmitted: (_) => _load(),
+            ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    itemBuilder: (context, i) {
+                      final n = _items[i];
+                      return SurfaceCard(
+                        child: ListTile(
+                          leading: CircleAvatar(backgroundColor: const Color(0x1A204C4F), child: Icon(_iconFor(n.category), color: const Color(0xFF204C4F))),
+                          title: Text(n.title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                          subtitle: Text(n.body, maxLines: 2, overflow: TextOverflow.ellipsis),
+                          trailing: n.isRead ? null : const Icon(Icons.brightness_1, size: 10, color: Color(0xFF204C4F)),
+                        ),
+                      );
+                    },
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemCount: _items.length,
+                  ),
           ),
         ],
       ),
