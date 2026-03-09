@@ -94,6 +94,9 @@ CREATE TABLE notifications (
   property_id UUID REFERENCES properties(id),
   title VARCHAR(160) NOT NULL,
   body TEXT NOT NULL,
+  category VARCHAR(30) NOT NULL DEFAULT 'general' CHECK (category IN ('payment', 'maintenance', 'general')),
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  read_at TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
