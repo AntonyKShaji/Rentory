@@ -179,6 +179,53 @@ class ApiService {
     return Property.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
   }
 
+  Future<Property> updateProperty({
+    required String propertyId,
+    required String location,
+    required String name,
+    required String unitType,
+    required int capacity,
+    required double rent,
+    required String imageUrl,
+    required String description,
+    required bool isActive,
+    int? areaSqft,
+    String? parkingDetails,
+    String? preferredResidents,
+    required double advanceAmount,
+    String? fullAddress,
+    required bool caretakerEnabled,
+    String? caretakerName,
+    String? caretakerContact,
+    String? propertyReference,
+  }) async {
+    final response = await _patch('/properties/$propertyId', {
+      'location': location,
+      'name': name,
+      'unit_type': unitType,
+      'capacity': capacity,
+      'rent': rent,
+      'image_url': imageUrl,
+      'description': description,
+      'is_active': isActive,
+      'area_sqft': areaSqft,
+      'parking_details': parkingDetails,
+      'preferred_residents': preferredResidents,
+      'advance_amount': advanceAmount,
+      'full_address': fullAddress,
+      'caretaker_enabled': caretakerEnabled,
+      'caretaker_name': caretakerName,
+      'caretaker_contact': caretakerContact,
+      'property_reference': propertyReference,
+    });
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to update property (${response.statusCode}): ${response.body}');
+    }
+
+    return Property.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
 
 
   Future<Map<String, dynamic>> getOwnerNotifications({

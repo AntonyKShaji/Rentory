@@ -59,6 +59,33 @@ class PropertyCreateRequest(BaseModel):
         return self
 
 
+
+
+class PropertyUpdateRequest(BaseModel):
+    location: str
+    name: str
+    unit_type: str
+    capacity: int = Field(gt=0)
+    rent: float = Field(gt=0)
+    image_url: str
+    description: str | None = None
+    is_active: bool = True
+    area_sqft: int | None = Field(default=None, gt=0)
+    parking_details: str | None = None
+    preferred_residents: str | None = None
+    advance_amount: float = Field(default=0, ge=0)
+    full_address: str | None = None
+    caretaker_enabled: bool = False
+    caretaker_name: str | None = None
+    caretaker_contact: str | None = None
+    property_reference: str | None = None
+
+    @model_validator(mode="after")
+    def validate_caretaker(self) -> "PropertyUpdateRequest":
+        if self.caretaker_enabled and (not self.caretaker_name or not self.caretaker_contact):
+            raise ValueError("caretaker_name and caretaker_contact are required when caretaker_enabled is true")
+        return self
+
 class PropertyCardResponse(BaseModel):
     id: str
     owner_id: str
