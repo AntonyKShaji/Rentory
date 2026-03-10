@@ -41,6 +41,7 @@ from app.schemas import (
     PropertyCardResponse,
     PropertyCreateRequest,
     PropertyDetailsResponse,
+    PropertyUpdateRequest,
     TenantDashboardResponse,
     TenantDetailsResponse,
     TenantRegistrationRequest,
@@ -235,6 +236,40 @@ class RentoryService:
         db.commit()
         db.refresh(property_row)
         return self.property_card(property_row)
+
+    def update_property(self, property_id: str, payload: PropertyUpdateRequest, actor_id: str, db: Session) -> PropertyCardResponse:
+        row = db.get(Property, property_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail=messages.PROPERTY_NOT_FOUND)
+        if row.owner_id != actor_id:
+            raise HTTPException(status_code=403, detail=messages.AUTHORIZATION_DENIED)
+
+        row.location = payload.location
+        row.name = payload.name
+        row.unit_type = payload.unit_type
+        row.description = payload.description
+        row.image_url = payload.image_url
+        row.capacity = payload.capacity
+        row.rent = payload.rent
+        row.current_bill_amount = payload.rent
+        row.is_active = payload.is_active
+        row.area_sqft = payload.area_sqft
+        row.parking_details = payload.parking_details
+        row.preferred_residents = payload.preferred_residents
+        row.advance_amount = payload.advance_amount
+        row.full_address = payload.full_address
+        row.caretaker_enabled = payload.caretaker_enabled
+        row.caretaker_name = payload.caretaker_name
+        row.caretaker_contact = payload.caretaker_contact
+        row.property_reference = payload.property_reference
+
+        chat_group = db.scalar(select(ChatGroup).where(ChatGroup.property_id == property_id))
+        if chat_group is not None:
+            chat_group.group_name = payload.name
+
+        db.commit()
+        db.refresh(row)
+        return self.property_card(row)
 
     def get_property(self, property_id: str, db: Session) -> PropertyDetailsResponse:
         row = db.get(Property, property_id)

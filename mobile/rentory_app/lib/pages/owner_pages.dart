@@ -835,35 +835,114 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
   }
 }
 
-class AddPropertyPage extends StatefulWidget {
+class AddPropertyPage extends StatelessWidget {
   const AddPropertyPage({super.key, required this.ownerId});
   final String ownerId;
 
   @override
-  State<AddPropertyPage> createState() => _AddPropertyPageState();
+  Widget build(BuildContext context) {
+    return PropertyEditorPage(ownerId: ownerId);
+  }
 }
 
-class _AddPropertyPageState extends State<AddPropertyPage> {
+class PropertyDetailsPage extends StatelessWidget {
+  const PropertyDetailsPage({super.key, required this.property, required this.ownerId});
+  final Property property;
+  final String ownerId;
+
+  @override
+  Widget build(BuildContext context) {
+    return PropertyEditorPage(ownerId: ownerId, property: property);
+  }
+}
+
+class PropertyEditorPage extends StatefulWidget {
+  const PropertyEditorPage({super.key, required this.ownerId, this.property});
+
+  final String ownerId;
+  final Property? property;
+
+  bool get isEdit => property != null;
+
+  @override
+  State<PropertyEditorPage> createState() => _PropertyEditorPageState();
+}
+
+class _PropertyEditorPageState extends State<PropertyEditorPage> {
+  static const Color _primary = Color(0xFF204C4F);
+
   final ApiService _api = ApiService();
+  final ImagePicker _picker = ImagePicker();
   final _name = TextEditingController();
   final _location = TextEditingController();
-  final _unitType = TextEditingController(text: '2BHK');
-  final _capacity = TextEditingController(text: '2');
-  final _rent = TextEditingController(text: '15000');
+  final _unitType = TextEditingController();
+  final _capacity = TextEditingController();
+  final _rent = TextEditingController();
   final _description = TextEditingController();
   final _areaSqft = TextEditingController();
   final _parkingDetails = TextEditingController();
   final _preferredResidents = TextEditingController();
-  final _advanceAmount = TextEditingController(text: '0');
+  final _advanceAmount = TextEditingController();
   final _fullAddress = TextEditingController();
   final _caretakerName = TextEditingController();
   final _caretakerContact = TextEditingController();
   final _propertyReference = TextEditingController();
+
   bool _isActive = true;
   bool _caretakerEnabled = false;
-  final ImagePicker _picker = ImagePicker();
   String? _imageDataUri;
+  bool _isSaving = false;
+  bool _loading = false;
   final Map<String, String?> _errors = {};
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isEdit) {
+      _hydrateFromCard();
+      _loadDetails();
+    } else {
+      _unitType.text = '2BHK';
+      _capacity.text = '2';
+      _rent.text = '15000';
+      _advanceAmount.text = '0';
+      _preferredResidents.text = 'Bachelors';
+      _parkingDetails.text = 'Car Parking Available';
+    }
+  }
+
+  void _hydrateFromCard() {
+    final property = widget.property!;
+    _name.text = property.name;
+    _location.text = property.location;
+    _unitType.text = property.unitType;
+    _capacity.text = property.capacity.toString();
+    _rent.text = property.rent.toStringAsFixed(0);
+    _imageDataUri = property.imageUrl;
+    _isActive = property.isActive;
+  }
+
+  Future<void> _loadDetails() async {
+    setState(() => _loading = true);
+    try {
+      final data = await _api.getPropertyDetails(widget.property!.id);
+      if (!mounted) return;
+      setState(() {
+        _description.text = data['description'] as String? ?? '';
+        _areaSqft.text = (data['area_sqft'] as int?)?.toString() ?? '';
+        _parkingDetails.text = data['parking_details'] as String? ?? _parkingDetails.text;
+        _preferredResidents.text = data['preferred_residents'] as String? ?? _preferredResidents.text;
+        _advanceAmount.text = (data['advance_amount'] ?? 0).toString();
+        _fullAddress.text = data['full_address'] as String? ?? '';
+        _caretakerEnabled = (data['caretaker_enabled'] as bool?) ?? false;
+        _caretakerName.text = data['caretaker_name'] as String? ?? '';
+        _caretakerContact.text = data['caretaker_contact'] as String? ?? '';
+        _propertyReference.text = data['property_reference'] as String? ?? '';
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   Future<void> _pickImage() async {
     final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
@@ -875,7 +954,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
 
   bool _validate() {
     final nextErrors = <String, String?>{};
-    if (_imageDataUri == null) nextErrors['image'] = 'Property image is required';
+    if (_imageDataUri == null || _imageDataUri!.trim().isEmpty) nextErrors['image'] = 'Property image is required';
     if (_name.text.trim().isEmpty) nextErrors['name'] = 'Property name is required';
     if (_location.text.trim().isEmpty) nextErrors['location'] = 'Place is required';
     if (_unitType.text.trim().isEmpty) nextErrors['unit'] = 'Unit type is required';
@@ -895,250 +974,165 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
   }
 
   Future<void> _submit() async {
-    if (!_validate()) return;
+    if (!_validate() || _isSaving) return;
+    setState(() => _isSaving = true);
     try {
-      await _api.createProperty(
-        ownerId: widget.ownerId,
-        location: _location.text,
-        name: _name.text,
-        unitType: _unitType.text,
-        capacity: int.tryParse(_capacity.text) ?? 1,
-        rent: double.tryParse(_rent.text) ?? 0,
-        imageUrl: _imageDataUri!,
-        description: _description.text,
-        isActive: _isActive,
-        areaSqft: int.tryParse(_areaSqft.text.trim()),
-        parkingDetails: _parkingDetails.text.trim().isEmpty ? null : _parkingDetails.text.trim(),
-        preferredResidents: _preferredResidents.text.trim().isEmpty ? null : _preferredResidents.text.trim(),
-        advanceAmount: double.tryParse(_advanceAmount.text.trim()) ?? 0,
-        fullAddress: _fullAddress.text.trim().isEmpty ? null : _fullAddress.text.trim(),
-        caretakerEnabled: _caretakerEnabled,
-        caretakerName: _caretakerName.text.trim().isEmpty ? null : _caretakerName.text.trim(),
-        caretakerContact: _caretakerContact.text.trim().isEmpty ? null : _caretakerContact.text.trim(),
-        propertyReference: _propertyReference.text.trim().isEmpty ? null : _propertyReference.text.trim(),
-      );
-      if (mounted) Navigator.pop(context);
+      if (widget.isEdit) {
+        await _api.updateProperty(
+          propertyId: widget.property!.id,
+          location: _location.text.trim(),
+          name: _name.text.trim(),
+          unitType: _unitType.text.trim(),
+          capacity: int.tryParse(_capacity.text.trim()) ?? 1,
+          rent: double.tryParse(_rent.text.trim()) ?? 0,
+          imageUrl: _imageDataUri!,
+          description: _description.text.trim(),
+          isActive: _isActive,
+          areaSqft: int.tryParse(_areaSqft.text.trim()),
+          parkingDetails: _parkingDetails.text.trim().isEmpty ? null : _parkingDetails.text.trim(),
+          preferredResidents: _preferredResidents.text.trim().isEmpty ? null : _preferredResidents.text.trim(),
+          advanceAmount: double.tryParse(_advanceAmount.text.trim()) ?? 0,
+          fullAddress: _fullAddress.text.trim().isEmpty ? null : _fullAddress.text.trim(),
+          caretakerEnabled: _caretakerEnabled,
+          caretakerName: _caretakerName.text.trim().isEmpty ? null : _caretakerName.text.trim(),
+          caretakerContact: _caretakerContact.text.trim().isEmpty ? null : _caretakerContact.text.trim(),
+          propertyReference: _propertyReference.text.trim().isEmpty ? null : _propertyReference.text.trim(),
+        );
+      } else {
+        await _api.createProperty(
+          ownerId: widget.ownerId,
+          location: _location.text.trim(),
+          name: _name.text.trim(),
+          unitType: _unitType.text.trim(),
+          capacity: int.tryParse(_capacity.text.trim()) ?? 1,
+          rent: double.tryParse(_rent.text.trim()) ?? 0,
+          imageUrl: _imageDataUri!,
+          description: _description.text.trim(),
+          isActive: _isActive,
+          areaSqft: int.tryParse(_areaSqft.text.trim()),
+          parkingDetails: _parkingDetails.text.trim().isEmpty ? null : _parkingDetails.text.trim(),
+          preferredResidents: _preferredResidents.text.trim().isEmpty ? null : _preferredResidents.text.trim(),
+          advanceAmount: double.tryParse(_advanceAmount.text.trim()) ?? 0,
+          fullAddress: _fullAddress.text.trim().isEmpty ? null : _fullAddress.text.trim(),
+          caretakerEnabled: _caretakerEnabled,
+          caretakerName: _caretakerName.text.trim().isEmpty ? null : _caretakerName.text.trim(),
+          caretakerContact: _caretakerContact.text.trim().isEmpty ? null : _caretakerContact.text.trim(),
+          propertyReference: _propertyReference.text.trim().isEmpty ? null : _propertyReference.text.trim(),
+        );
+      }
+      if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Property')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          SurfaceCard(
-            child: Column(
+      backgroundColor: const Color(0xFFF6F8F6),
+      appBar: AppBar(title: const Text('Property Details')),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
               children: [
-                RemoteOrDataImage(imageRef: _imageDataUri, height: 190),
-                const SizedBox(height: 10),
-                FieldWithTopError(
-                  errorText: _errors['image'],
-                  child: OutlinedButton.icon(onPressed: _pickImage, icon: const Icon(Icons.upload), label: const Text('Upload image')),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(
+                    children: [
+                      RemoteOrDataImage(imageRef: _imageDataUri, height: 220),
+                      Positioned(
+                        bottom: 12,
+                        right: 12,
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: _primary),
+                          onPressed: _pickImage,
+                          icon: const Icon(Icons.add_a_photo),
+                          label: const Text('Change Photo'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_errors['image'] != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_errors['image']!, style: const TextStyle(color: Colors.red))),
+                const SizedBox(height: 16),
+                Card(
+                  child: SwitchListTile(
+                    value: _isActive,
+                    onChanged: (v) => setState(() => _isActive = v),
+                    title: const Text('Listing Status', style: TextStyle(fontWeight: FontWeight.w700, color: _primary)),
+                    subtitle: Text(_isActive ? 'Active' : 'Inactive'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _section(
+                  title: 'Property Specifications',
+                  child: Column(children: [
+                    _field(_name, 'Property name', errorKey: 'name'),
+                    _field(_location, 'Location', errorKey: 'location'),
+                    Row(children: [Expanded(child: _field(_unitType, 'Type', errorKey: 'unit')), const SizedBox(width: 10), Expanded(child: _field(_areaSqft, 'Area sqft', errorKey: 'area'))]),
+                    Row(children: [Expanded(child: _field(_capacity, 'Capacity', errorKey: 'capacity')), const SizedBox(width: 10), Expanded(child: _field(_preferredResidents, 'Residents'))]),
+                    Row(children: [Expanded(child: _field(_rent, 'Monthly rent', errorKey: 'rent')), const SizedBox(width: 10), Expanded(child: _field(_advanceAmount, 'Advance amount', errorKey: 'advance'))]),
+                    _field(_parkingDetails, 'Parking details'),
+                    _field(_fullAddress, 'Full address'),
+                    _field(_description, 'Description', errorKey: 'description', maxLines: 3),
+                  ]),
+                ),
+                const SizedBox(height: 12),
+                _section(
+                  title: 'Caretaker Details',
+                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [const Text('Enabled'), Checkbox(value: _caretakerEnabled, onChanged: (v) => setState(() => _caretakerEnabled = v ?? false))]),
+                  child: Column(children: [
+                    if (_caretakerEnabled) ...[
+                      Row(children: [Expanded(child: _field(_caretakerName, 'Name', errorKey: 'caretaker_name')), const SizedBox(width: 10), Expanded(child: _field(_caretakerContact, 'Contact', errorKey: 'caretaker_contact'))]),
+                    ],
+                    _field(_propertyReference, 'Property reference'),
+                  ]),
                 ),
               ],
             ),
+      bottomNavigationBar: Container(
+        color: const Color(0xFFF6F8F6),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: FilledButton.icon(
+          style: FilledButton.styleFrom(backgroundColor: _primary, padding: const EdgeInsets.symmetric(vertical: 16)),
+          onPressed: _isSaving ? null : _submit,
+          icon: const Icon(Icons.save),
+          label: Text(_isSaving ? 'Saving...' : (widget.isEdit ? 'Save Changes' : 'Create Property')),
+        ),
+      ),
+    );
+  }
+
+  Widget _section({required String title, required Widget child, Widget? trailing}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD9E0E3)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(color: Color(0xFFF0F2F2), borderRadius: BorderRadius.vertical(top: Radius.circular(14))),
+            child: Row(children: [Text(title, style: const TextStyle(fontWeight: FontWeight.w700, color: _primary)), const Spacer(), if (trailing != null) trailing]),
           ),
-          const SizedBox(height: 12),
-          FieldWithTopError(
-            errorText: _errors['name'],
-            child: TextField(controller: _name, decoration: const InputDecoration(labelText: 'Property name')),
-          ),
-          const SizedBox(height: 10),
-          FieldWithTopError(
-            errorText: _errors['location'],
-            child: TextField(controller: _location, decoration: const InputDecoration(labelText: 'Place')),
-          ),
-          const SizedBox(height: 10),
-          FieldWithTopError(
-            errorText: _errors['unit'],
-            child: TextField(controller: _unitType, decoration: const InputDecoration(labelText: 'Unit type')),
-          ),
-          const SizedBox(height: 10),
-          FieldWithTopError(
-            errorText: _errors['capacity'],
-            child: TextField(controller: _capacity, decoration: const InputDecoration(labelText: 'No. of tenants allowed')),
-          ),
-          const SizedBox(height: 10),
-          FieldWithTopError(
-            errorText: _errors['rent'],
-            child: TextField(controller: _rent, decoration: const InputDecoration(labelText: 'Rent')),
-          ),
-          const SizedBox(height: 10),
-          FieldWithTopError(
-            errorText: _errors['description'],
-            child: TextField(controller: _description, decoration: const InputDecoration(labelText: 'Description')),
-          ),
-          const SizedBox(height: 10),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Listing Active'),
-            value: _isActive,
-            onChanged: (value) => setState(() => _isActive = value),
-          ),
-          const SizedBox(height: 10),
-          FieldWithTopError(
-            errorText: _errors['area'],
-            child: TextField(controller: _areaSqft, decoration: const InputDecoration(labelText: 'Area (sqft)')),
-          ),
-          const SizedBox(height: 10),
-          TextField(controller: _parkingDetails, decoration: const InputDecoration(labelText: 'Parking details')),
-          const SizedBox(height: 10),
-          TextField(controller: _preferredResidents, decoration: const InputDecoration(labelText: 'Preferred residents')),
-          const SizedBox(height: 10),
-          FieldWithTopError(
-            errorText: _errors['advance'],
-            child: TextField(controller: _advanceAmount, decoration: const InputDecoration(labelText: 'Advance amount')),
-          ),
-          const SizedBox(height: 10),
-          TextField(controller: _fullAddress, decoration: const InputDecoration(labelText: 'Full address')),
-          const SizedBox(height: 10),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Enable caretaker'),
-            value: _caretakerEnabled,
-            onChanged: (value) => setState(() => _caretakerEnabled = value),
-          ),
-          if (_caretakerEnabled) ...[
-            FieldWithTopError(
-              errorText: _errors['caretaker_name'],
-              child: TextField(controller: _caretakerName, decoration: const InputDecoration(labelText: 'Caretaker name')),
-            ),
-            const SizedBox(height: 10),
-            FieldWithTopError(
-              errorText: _errors['caretaker_contact'],
-              child: TextField(controller: _caretakerContact, decoration: const InputDecoration(labelText: 'Caretaker contact')),
-            ),
-            const SizedBox(height: 10),
-          ],
-          TextField(controller: _propertyReference, decoration: const InputDecoration(labelText: 'Property reference')),
-          const SizedBox(height: 16),
-          FilledButton(onPressed: _submit, child: const Text('Create property')),
+          Padding(padding: const EdgeInsets.all(12), child: child),
         ],
       ),
     );
   }
-}
 
-class PropertyDetailsPage extends StatefulWidget {
-  const PropertyDetailsPage({super.key, required this.property, required this.ownerId});
-  final Property property;
-  final String ownerId;
-
-  @override
-  State<PropertyDetailsPage> createState() => _PropertyDetailsPageState();
-}
-
-class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
-  final ApiService _api = ApiService();
-  late Future<Map<String, dynamic>> _details;
-
-  @override
-  void initState() {
-    super.initState();
-    _details = _api.getPropertyDetails(widget.property.id);
-  }
-
-  Future<void> _toggleWaterBill(String currentStatus) async {
-    final next = currentStatus == 'paid' ? 'unpaid' : 'paid';
-    await _api.updateWaterBillStatus(propertyId: widget.property.id, status: next);
-    setState(() => _details = _api.getPropertyDetails(widget.property.id));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.property.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => OwnerNotificationsPage(ownerId: widget.ownerId, propertyId: widget.property.id, propertyName: widget.property.name),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chat_bubble_outline),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatPage(propertyId: widget.property.id, propertyName: widget.property.name, senderId: widget.ownerId))),
-          ),
-        ],
-      ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _details,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          final data = snapshot.data!;
-          final tenants = (data['tenants'] as List<dynamic>).cast<Map<String, dynamic>>();
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              RemoteOrDataImage(imageRef: data['property']['image_url'] as String?),
-              const SizedBox(height: 12),
-              SurfaceCard(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(widget.property.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Text(data['full_address'] as String? ?? widget.property.location, style: const TextStyle(color: Colors.black54)),
-                  const SizedBox(height: 8),
-                  Text('Status: ${((data['property']['is_active'] as bool?) ?? true) ? 'Active' : 'Inactive'}'),
-                  Text('Current bill: ₹${data['current_bill_amount']}'),
-                  Text('Advance amount: ₹${data['advance_amount'] ?? 0}'),
-                  if ((data['area_sqft'] as int?) != null) Text('Area: ${data['area_sqft']} sqft'),
-                  if ((data['parking_details'] as String?) != null) Text('Parking: ${data['parking_details']}'),
-                  if ((data['preferred_residents'] as String?) != null) Text('Residents: ${data['preferred_residents']}'),
-                  Text('Caretaker enabled: ${(data['caretaker_enabled'] as bool?) ?? false ? 'Yes' : 'No'}'),
-                  if ((data['caretaker_name'] as String?) != null) Text('Caretaker: ${data['caretaker_name']} (${data['caretaker_contact'] ?? '-'})'),
-                  if ((data['property_reference'] as String?) != null) Text('Reference: ${data['property_reference']}'),
-                  Row(children: [Text('Water bill: ${data['water_bill_status']}'), TextButton(onPressed: () => _toggleWaterBill(data['water_bill_status'] as String), child: const Text('Toggle'))]),
-                ]),
-              ),
-              const SizedBox(height: 12),
-              SurfaceCard(
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const CircleAvatar(radius: 22, child: Icon(Icons.qr_code_2)),
-                  title: const Text('Property QR Code', style: TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: const Text('For tenant payments & access'),
-                  trailing: const Row(mainAxisSize: MainAxisSize.min, children: [Text('Generate', style: TextStyle(fontWeight: FontWeight.w700)), SizedBox(width: 4), Icon(Icons.chevron_right)]),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PropertyQrCodePage(
-                        propertyName: widget.property.name,
-                        address: data['full_address'] as String? ?? widget.property.location,
-                        qrCodeUrl: data['property']['qr_code_url'] as String,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Current Tenants', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => CurrentTenantsPage(tenants: tenants)),
-                ),
-              ),
-              ...tenants.map((tenant) => Card(
-                    child: ListTile(
-                      title: Text(tenant['full_name'] as String),
-                      subtitle: Text(tenant['phone'] as String),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TenantDetailsPage(tenantId: tenant['tenant_id'] as String))),
-                    ),
-                  )),
-            ],
-          );
-        },
+  Widget _field(TextEditingController controller, String label, {String? errorKey, int maxLines = 1}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        decoration: InputDecoration(labelText: label, errorText: errorKey == null ? null : _errors[errorKey]),
       ),
     );
   }

@@ -13,6 +13,7 @@ from app.schemas import (
     JoinRequestCreate,
     JoinRequestResponse,
     PropertyDetailsResponse,
+    PropertyUpdateRequest,
     WaterBillStatusUpdateRequest,
 )
 from app.services.rentory_service import RentoryService
@@ -58,6 +59,18 @@ def _authenticate_websocket(websocket: WebSocket) -> AuthUser:
 @router.get("/{property_id}", response_model=PropertyDetailsResponse)
 def get_property(property_id: str, db: Session = Depends(get_db), _: AuthUser = Depends(get_current_user)) -> PropertyDetailsResponse:
     return service.get_property(property_id, db)
+
+
+@router.patch("/{property_id}")
+def update_property(
+    property_id: str,
+    payload: PropertyUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: AuthUser = Depends(get_current_user),
+):
+    if current_user.role != "owner":
+        raise HTTPException(status_code=403, detail=messages.AUTHORIZATION_DENIED)
+    return service.update_property(property_id, payload, current_user.user_id, db)
 
 
 @router.patch("/{property_id}/water-bill")
