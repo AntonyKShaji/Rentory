@@ -22,8 +22,8 @@ class OwnerDashboardPage extends StatefulWidget {
 class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
   final ApiService _api = ApiService();
   late Future<List<Property>> _properties;
-  late Future<Map<String, dynamic>> _analytics;
   int _selectedTab = 0;
+  static const Color _brandDark = Color(0xFF114C52);
 
   @override
   void initState() {
@@ -33,132 +33,114 @@ class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
 
   void _reload() {
     _properties = _api.listOwnerProperties(widget.ownerId);
-    _analytics = _api.ownerAnalytics(widget.ownerId);
     setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     final profile = OwnerProfileStore.getByOwnerId(widget.ownerId);
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Owner Dashboard'),
-        actions: [
-          IconButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => OwnerNotificationsPage(ownerId: widget.ownerId)),
-            ),
-            icon: const Icon(Icons.notifications_none),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: IconButton(
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => OwnerProfilePage(ownerId: widget.ownerId)),
-                );
-                if (!context.mounted) return;
-                setState(() {});
-              },
-              icon: CircleAvatar(
-                radius: 16,
-                backgroundColor: const Color(0xFF204C4F),
-                child: ClipOval(
-                  child: RemoteOrDataImage(
-                    imageRef: profile.avatarImage,
-                    width: 32,
-                    height: 32,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          await Navigator.push(context, MaterialPageRoute(builder: (_) => AddPropertyPage(ownerId: widget.ownerId)));
-          _reload();
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Add Property'),
-      ),
+      backgroundColor: const Color(0xFFF4F6F8),
       body: RefreshIndicator(
         onRefresh: () async => _reload(),
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 22, 16, 18),
           children: [
-            FutureBuilder<Map<String, dynamic>>(
-              future: _analytics,
-              builder: (context, snapshot) {
-                final analytics = snapshot.data;
-                return SurfaceCard(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Portfolio Analytics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 10),
-                    Wrap(spacing: 12, runSpacing: 12, children: [
-                      _metricChip('Properties', '${analytics?['total_properties'] ?? '-'}'),
-                      _metricChip('Tenants', '${analytics?['total_tenants'] ?? '-'}'),
-                      _metricChip('By Place', '${analytics?['grouped_by_place'] ?? '{}'}'),
-                    ]),
-                  ]),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
             FutureBuilder<List<Property>>(
               future: _properties,
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: Padding(padding: EdgeInsets.all(22), child: CircularProgressIndicator()));
                 final properties = snapshot.data!;
-                if (properties.isEmpty) {
-                  return SurfaceCard(
-                    child: Column(children: [
-                      const Icon(Icons.home_work_outlined, size: 44),
-                      const SizedBox(height: 8),
-                      const Text('No properties yet'),
-                      const SizedBox(height: 12),
-                      FilledButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AddPropertyPage(ownerId: widget.ownerId))), child: const Text('Add your first property')),
-                    ]),
-                  );
-                }
-                final previewProperties = properties.take(4).toList();
+                final previewProperties = properties.take(2).toList();
+                final totalRent = properties.fold<double>(0, (sum, property) => sum + property.rent);
+                final totalTenants = properties.fold<int>(0, (sum, property) => sum + property.occupiedCount);
+                final unreadAlerts = properties.fold<int>(0, (sum, property) => sum + property.unreadNotifications);
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Properties', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                        TextButton(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => AllPropertiesPage(ownerId: widget.ownerId, properties: properties),
+                    _dashboardHeader(profile: profile, unreadAlerts: unreadAlerts),
+                    const SizedBox(height: 22),
+                    if (properties.isEmpty)
+                      SurfaceCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Properties', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: _brandDark)),
+                            const SizedBox(height: 10),
+                            const Text('No properties yet', style: TextStyle(color: Color(0xFF5E738E))),
+                            const SizedBox(height: 12),
+                            FilledButton(
+                              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AddPropertyPage(ownerId: widget.ownerId))),
+                              style: FilledButton.styleFrom(backgroundColor: _brandDark),
+                              child: const Text('Add your first property'),
+                            ),
+                          ],
+                        ),
+                      )
+                    else ...[
+                      Row(
+                        children: [
+                          const Text('Properties', style: TextStyle(fontSize: 36, fontWeight: FontWeight.w700, color: _brandDark)),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () async {
+                              await Navigator.push(context, MaterialPageRoute(builder: (_) => AddPropertyPage(ownerId: widget.ownerId)));
+                              _reload();
+                            },
+                            child: const CircleAvatar(
+                              radius: 13,
+                              backgroundColor: _brandDark,
+                              child: Icon(Icons.add, size: 16, color: Colors.white),
                             ),
                           ),
-                          child: const Text('See All'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: previewProperties
-                            .map((property) => Padding(
-                                  padding: const EdgeInsets.only(right: 12),
-                                  child: SizedBox(
-                                    width: 240,
-                                    child: _propertyCard(property),
-                                  ),
-                                ))
-                            .toList(),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => AllPropertiesPage(ownerId: widget.ownerId, properties: properties)),
+                            ),
+                            child: const Text('See All', style: TextStyle(fontSize: 18, color: Color(0xFF607B80), fontWeight: FontWeight.w600)),
+                          ),
+                        ],
                       ),
-                    ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        height: 240,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: previewProperties.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 18),
+                          itemBuilder: (context, index) => SizedBox(width: 315, child: _propertyCard(previewProperties[index])),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(child: _overviewCard(icon: Icons.payments_outlined, title: 'Payment Due', value: '₹${totalRent.toStringAsFixed(0)}')),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _overviewCard(
+                              icon: Icons.history_toggle_off,
+                              title: 'History',
+                              value: 'View All',
+                              trailing: const Icon(Icons.chevron_right, color: Color(0xFF97A5BB)),
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => OwnerHistoryPage(ownerId: widget.ownerId))),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(child: _revenueCard(totalRent)),
+                          const SizedBox(width: 16),
+                          Expanded(child: _tenantsCard(totalTenants, theme)),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      _financialGrowthCard(),
+                    ],
                   ],
                 );
               },
@@ -195,14 +177,211 @@ class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
         borderRadius: BorderRadius.circular(20),
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PropertyDetailsPage(property: property, ownerId: widget.ownerId))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          RemoteOrDataImage(imageRef: property.imageUrl, height: 140, borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
-          ListTile(
-            title: Text(property.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text('${property.location} • ${property.occupiedCount}/${property.capacity} tenants • ${property.unreadNotifications} alerts'),
-            trailing: Text('₹${property.rent.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+          RemoteOrDataImage(imageRef: property.imageUrl, height: 160, borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(property.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: _brandDark)),
+                const SizedBox(height: 4),
+                Text(property.location, style: const TextStyle(fontSize: 14, color: Color(0xFF5E738E))),
+              ],
+            ),
           ),
         ]),
       ),
+    );
+  }
+
+  Widget _dashboardHeader({required OwnerProfile profile, required int unreadAlerts}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFDCE3EA)),
+        boxShadow: const [BoxShadow(color: Color(0x12000000), blurRadius: 10, offset: Offset(0, 3))],
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(radius: 20, backgroundColor: _brandDark, child: Icon(Icons.apartment, color: Colors.white)),
+          const SizedBox(width: 14),
+          const Text('Rentory', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: _brandDark)),
+          const Spacer(),
+          _roundIconButton(icon: Icons.search, onTap: () {}),
+          const SizedBox(width: 8),
+          _roundIconButton(
+            icon: Icons.notifications,
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => OwnerNotificationsPage(ownerId: widget.ownerId))),
+            badgeCount: unreadAlerts == 0 ? null : unreadAlerts,
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () async {
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => OwnerProfilePage(ownerId: widget.ownerId)));
+              if (!context.mounted) return;
+              setState(() {});
+            },
+            child: CircleAvatar(
+              radius: 21,
+              backgroundColor: _brandDark,
+              child: ClipOval(
+                child: RemoteOrDataImage(
+                  imageRef: profile.avatarImage,
+                  width: 42,
+                  height: 42,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _roundIconButton({required IconData icon, VoidCallback? onTap, int? badgeCount}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 43,
+            height: 43,
+            decoration: const BoxDecoration(color: Color(0xFFF1F4F7), shape: BoxShape.circle),
+            child: Icon(icon, color: const Color(0xFF30455E)),
+          ),
+          if (badgeCount != null)
+            Positioned(
+              right: -2,
+              top: -5,
+              child: Container(
+                width: 20,
+                height: 20,
+                decoration: const BoxDecoration(color: Color(0xFFFF4D4D), shape: BoxShape.circle),
+                alignment: Alignment.center,
+                child: Text('$badgeCount', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _overviewCard({required IconData icon, required String title, required String value, Widget? trailing, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SurfaceCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [Icon(icon, color: _brandDark), const Spacer(), if (trailing != null) trailing]),
+          const SizedBox(height: 20),
+          Text(title, style: const TextStyle(fontSize: 15, color: Color(0xFF5F7594))),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 22, color: _brandDark)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _revenueCard(double totalRent) {
+    return SurfaceCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(
+          children: [
+            const Expanded(child: Text('Total\nRevenue', style: TextStyle(fontSize: 16, color: Color(0xFF5F7594)))),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: const Color(0xFFE8EEF3), borderRadius: BorderRadius.circular(8)),
+              child: const Text('+12%', style: TextStyle(fontWeight: FontWeight.w700, color: _brandDark)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text('₹${totalRent.toStringAsFixed(0)}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: _brandDark)),
+        const SizedBox(height: 20),
+        Container(
+          height: 5,
+          decoration: BoxDecoration(color: const Color(0xFFE8EDF1), borderRadius: BorderRadius.circular(99)),
+          child: FractionallySizedBox(
+            widthFactor: 0.74,
+            alignment: Alignment.centerLeft,
+            child: Container(decoration: BoxDecoration(color: _brandDark, borderRadius: BorderRadius.circular(99))),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _tenantsCard(int totalTenants, ThemeData theme) {
+    return SurfaceCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Text('Total Tenants', style: TextStyle(fontSize: 16, color: Color(0xFF5F7594))),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(color: const Color(0xFFE8EEF3), borderRadius: BorderRadius.circular(8)),
+            child: const Text('+5%', style: TextStyle(fontWeight: FontWeight.w700, color: _brandDark)),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        Text('$totalTenants', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: _brandDark)),
+        const SizedBox(height: 18),
+        Row(
+          children: [
+            CircleAvatar(radius: 12, backgroundColor: const Color(0xFFDDB09A), child: Text('👩', style: theme.textTheme.bodySmall)),
+            const SizedBox(width: 3),
+            CircleAvatar(radius: 12, backgroundColor: const Color(0xFFC8D8E8), child: Text('👨', style: theme.textTheme.bodySmall)),
+            const SizedBox(width: 3),
+            const CircleAvatar(radius: 12, backgroundColor: _brandDark, child: Text('+126', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w700))),
+          ],
+        ),
+      ]),
+    );
+  }
+
+  Widget _financialGrowthCard() {
+    return SurfaceCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Financial Growth', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 22, color: _brandDark)),
+                  SizedBox(height: 4),
+                  Text('Monthly revenue tracking', style: TextStyle(color: Color(0xFF647790))),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(color: const Color(0xFFF0F3F7), borderRadius: BorderRadius.circular(20)),
+              child: const Text('6 Months', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF3D4C65))),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          height: 180,
+          child: CustomPaint(size: const Size(double.infinity, 180), painter: _SimpleChartPainter()),
+        ),
+        const SizedBox(height: 18),
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('JAN', style: TextStyle(fontWeight: FontWeight.w700, color: _brandDark)),
+            Text('FEB', style: TextStyle(fontWeight: FontWeight.w700, color: _brandDark)),
+            Text('MAR', style: TextStyle(fontWeight: FontWeight.w700, color: _brandDark)),
+            Text('APR', style: TextStyle(fontWeight: FontWeight.w700, color: _brandDark)),
+            Text('MAY', style: TextStyle(fontWeight: FontWeight.w700, color: _brandDark)),
+            Text('JUN', style: TextStyle(fontWeight: FontWeight.w700, color: _brandDark)),
+          ],
+        ),
+      ]),
     );
   }
 
@@ -236,11 +415,53 @@ class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
     );
   }
 
-  Widget _metricChip(String label, String value) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(color: const Color(0xFFF0F6F7), borderRadius: BorderRadius.circular(12)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 12)), Text(value, style: const TextStyle(fontWeight: FontWeight.w700))]),
-      );
+}
+
+class _SimpleChartPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = Paint()
+      ..color = const Color(0xFF114C52)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+    final fill = Paint()
+      ..color = const Color(0x1A114C52)
+      ..style = PaintingStyle.fill;
+
+    final points = [
+      Offset(0, size.height * 0.82),
+      Offset(size.width * 0.25, size.height * 0.48),
+      Offset(size.width * 0.43, size.height * 0.6),
+      Offset(size.width * 0.65, size.height * 0.25),
+      Offset(size.width * 0.83, size.height * 0.4),
+      Offset(size.width, size.height * 0.12),
+    ];
+
+    final linePath = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 1; i < points.length; i++) {
+      final prev = points[i - 1];
+      final current = points[i];
+      final control = Offset((prev.dx + current.dx) / 2, prev.dy);
+      final control2 = Offset((prev.dx + current.dx) / 2, current.dy);
+      linePath.cubicTo(control.dx, control.dy, control2.dx, control2.dy, current.dx, current.dy);
+    }
+
+    final areaPath = Path.from(linePath)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    canvas.drawPath(areaPath, fill);
+    canvas.drawPath(linePath, stroke);
+
+    final markerPaint = Paint()..color = const Color(0xFF114C52);
+    canvas.drawCircle(points[1], 5, markerPaint);
+    canvas.drawCircle(points[3], 5, markerPaint);
+    canvas.drawCircle(points.last, 5, markerPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class AllPropertiesPage extends StatefulWidget {
