@@ -637,13 +637,31 @@ class OwnerProfilePage extends StatefulWidget {
 
 class _OwnerProfilePageState extends State<OwnerProfilePage> {
   final ImagePicker _picker = ImagePicker();
+  final ApiService _api = ApiService();
   late OwnerProfile _profile;
   bool _twoFactorEnabled = true;
+  int _totalPortfolio = 0;
 
   @override
   void initState() {
     super.initState();
     _profile = OwnerProfileStore.getByOwnerId(widget.ownerId);
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final payload = await _api.getOwnerProfile(widget.ownerId);
+      final profile = OwnerProfile.fromApi(payload).copyWith(avatarImage: _profile.avatarImage);
+      OwnerProfileStore.update(widget.ownerId, profile);
+      if (!mounted) return;
+      setState(() {
+        _profile = profile;
+        _totalPortfolio = payload['total_properties'] as int? ?? 0;
+      });
+    } catch (_) {
+      // keep locally cached fallback
+    }
   }
 
   Future<void> _pickAvatar() async {
@@ -739,12 +757,12 @@ class _OwnerProfilePageState extends State<OwnerProfilePage> {
               children: [
                 const CircleAvatar(radius: 24, backgroundColor: Color(0x338DB4B7), child: Icon(Icons.domain, color: Colors.white)),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('TOTAL PORTFOLIO', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
-                      Text('5 Properties', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700)),
+                      Text('$_totalPortfolio Properties', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700)),
                     ],
                   ),
                 ),
@@ -873,6 +891,7 @@ class _PropertyEditorPageState extends State<PropertyEditorPage> {
 
   final ApiService _api = ApiService();
   final ImagePicker _picker = ImagePicker();
+  final ApiService _api = ApiService();
   final _name = TextEditingController();
   final _location = TextEditingController();
   final _unitType = TextEditingController();

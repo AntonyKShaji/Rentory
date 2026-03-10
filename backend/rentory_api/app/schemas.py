@@ -54,11 +54,13 @@ class PropertyCreateRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_caretaker(self) -> "PropertyCreateRequest":
-        if self.caretaker_enabled and (not self.caretaker_name or not self.caretaker_contact):
-            raise ValueError("caretaker_name and caretaker_contact are required when caretaker_enabled is true")
+        if self.caretaker_enabled and (
+            not self.caretaker_name or not self.caretaker_contact
+        ):
+            raise ValueError(
+                "caretaker_name and caretaker_contact are required when caretaker_enabled is true"
+            )
         return self
-
-
 
 
 class PropertyUpdateRequest(BaseModel):
@@ -82,9 +84,14 @@ class PropertyUpdateRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_caretaker(self) -> "PropertyUpdateRequest":
-        if self.caretaker_enabled and (not self.caretaker_name or not self.caretaker_contact):
-            raise ValueError("caretaker_name and caretaker_contact are required when caretaker_enabled is true")
+        if self.caretaker_enabled and (
+            not self.caretaker_name or not self.caretaker_contact
+        ):
+            raise ValueError(
+                "caretaker_name and caretaker_contact are required when caretaker_enabled is true"
+            )
         return self
+
 
 class PropertyCardResponse(BaseModel):
     id: str
@@ -106,6 +113,16 @@ class OwnerAnalyticsResponse(BaseModel):
     grouped_by_place: dict[str, int]
     total_properties: int
     total_tenants: int
+
+
+class OwnerProfileResponse(BaseModel):
+    id: str
+    full_name: str
+    phone: str
+    email: str | None
+    role: str
+    created_at: datetime
+    total_properties: int
 
 
 class TenantSummaryResponse(BaseModel):
@@ -187,8 +204,6 @@ class BroadcastCreate(BaseModel):
 class BroadcastResponse(BaseModel):
     queued: bool
     notification_ids: list[str]
-
-
 
 
 class NotificationResponse(BaseModel):

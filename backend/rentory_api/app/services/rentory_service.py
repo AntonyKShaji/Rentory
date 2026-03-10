@@ -35,6 +35,7 @@ from app.schemas import (
     NotificationMarkReadResponse,
     NotificationResponse,
     OwnerAnalyticsResponse,
+    OwnerProfileResponse,
     OwnerSignupRequest,
     PaymentCreate,
     PaymentResponse,
@@ -57,7 +58,9 @@ class RentoryService:
         return f"https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={quote(qr_code)}"
 
     @classmethod
-    def property_card(cls, row: Property, unread_notifications: int = 0) -> PropertyCardResponse:
+    def property_card(
+        cls, row: Property, unread_notifications: int = 0
+    ) -> PropertyCardResponse:
         return PropertyCardResponse(
             id=row.id,
             owner_id=row.owner_id,
@@ -75,14 +78,26 @@ class RentoryService:
         )
 
     @staticmethod
-    def ensure_chat_membership(db: Session, group_id: str, user_id: str, role: str) -> None:
-        existing = db.scalar(select(ChatGroupMember).where(ChatGroupMember.group_id == group_id, ChatGroupMember.user_id == user_id))
+    def ensure_chat_membership(
+        db: Session, group_id: str, user_id: str, role: str
+    ) -> None:
+        existing = db.scalar(
+            select(ChatGroupMember).where(
+                ChatGroupMember.group_id == group_id, ChatGroupMember.user_id == user_id
+            )
+        )
         if existing is None:
-            db.add(ChatGroupMember(id=str(uuid4()), group_id=group_id, user_id=user_id, role=role))
+            db.add(
+                ChatGroupMember(
+                    id=str(uuid4()), group_id=group_id, user_id=user_id, role=role
+                )
+            )
 
     def owner_signup(self, payload: OwnerSignupRequest, db: Session) -> LoginResponse:
         if db.scalar(select(User).where(User.phone == payload.phone)) is not None:
-            raise HTTPException(status_code=409, detail=messages.PHONE_ALREADY_REGISTERED)
+            raise HTTPException(
+                status_code=409, detail=messages.PHONE_ALREADY_REGISTERED
+            )
 
         user = User(
             id=str(uuid4()),
@@ -95,16 +110,26 @@ class RentoryService:
         db.add(user)
         db.commit()
         db.refresh(user)
-        return LoginResponse(access_token=SecurityService.create_access_token(user.id, "owner"), role="owner", user_id=user.id)
+        return LoginResponse(
+            access_token=SecurityService.create_access_token(user.id, "owner"),
+            role="owner",
+            user_id=user.id,
+        )
 
-    def tenant_register(self, payload: TenantRegistrationRequest, db: Session) -> LoginResponse:
-        property_row = db.scalar(select(Property).where(Property.qr_code == payload.qr_code))
+    def tenant_register(
+        self, payload: TenantRegistrationRequest, db: Session
+    ) -> LoginResponse:
+        property_row = db.scalar(
+            select(Property).where(Property.qr_code == payload.qr_code)
+        )
         if property_row is None:
             raise HTTPException(status_code=404, detail=messages.INVALID_QR_CODE)
         if property_row.occupied_count >= property_row.capacity:
             raise HTTPException(status_code=409, detail=messages.PROPERTY_FULL)
         if db.scalar(select(User).where(User.phone == payload.phone)) is not None:
-            raise HTTPException(status_code=409, detail=messages.PHONE_ALREADY_REGISTERED)
+            raise HTTPException(
+                status_code=409, detail=messages.PHONE_ALREADY_REGISTERED
+            )
 
         tenant = User(
             id=str(uuid4()),
@@ -131,15 +156,25 @@ class RentoryService:
         )
         property_row.occupied_count += 1
 
-        group = db.scalar(select(ChatGroup).where(ChatGroup.property_id == property_row.id))
+        group = db.scalar(
+            select(ChatGroup).where(ChatGroup.property_id == property_row.id)
+        )
         if group is not None:
             self.ensure_chat_membership(db, group.id, tenant.id, "tenant")
 
         db.commit()
-        return LoginResponse(access_token=SecurityService.create_access_token(tenant.id, "tenant"), role="tenant", user_id=tenant.id)
+        return LoginResponse(
+            access_token=SecurityService.create_access_token(tenant.id, "tenant"),
+            role="tenant",
+            user_id=tenant.id,
+        )
 
     def login(self, payload: LoginRequest, db: Session) -> LoginResponse:
-        user = db.scalar(select(User).where((User.phone == payload.identifier) | (User.email == payload.identifier)))
+        user = db.scalar(
+            select(User).where(
+                (User.phone == payload.identifier) | (User.email == payload.identifier)
+            )
+        )
         if user is None:
             raise HTTPException(status_code=401, detail=messages.INVALID_CREDENTIALS)
         if user.role != payload.role:
@@ -151,7 +186,11 @@ class RentoryService:
             user.password_hash = SecurityService.hash_password(payload.password)
             db.commit()
 
-        return LoginResponse(access_token=SecurityService.create_access_token(user.id, user.role), role=user.role, user_id=user.id)
+        return LoginResponse(
+            access_token=SecurityService.create_access_token(user.id, user.role),
+            role=user.role,
+            user_id=user.id,
+        )
 
     def list_properties(self, owner_id: str, db: Session) -> list[PropertyCardResponse]:
         owner = db.get(User, owner_id)
@@ -171,7 +210,33 @@ class RentoryService:
                 .group_by(Notification.property_id)
             ).all()
         }
-        return [self.property_card(row, unread_notifications=notification_counts.get(row.id, 0)) for row in rows]
+        return [
+            self.property_card(
+                row, unread_notifications=notification_counts.get(row.id, 0)
+            )
+            for row in rows
+        ]
+
+    def owner_profile(self, owner_id: str, db: Session) -> OwnerProfileResponse:
+        owner = db.get(User, owner_id)
+        if owner is None or owner.role != "owner":
+            raise HTTPException(status_code=404, detail=messages.OWNER_NOT_FOUND)
+
+        total_properties = (
+            db.scalar(
+                select(func.count(Property.id)).where(Property.owner_id == owner_id)
+            )
+            or 0
+        )
+        return OwnerProfileResponse(
+            id=owner.id,
+            full_name=owner.full_name,
+            phone=owner.phone,
+            email=owner.email,
+            role=owner.role,
+            created_at=owner.created_at,
+            total_properties=total_properties,
+        )
 
     def owner_analytics(self, owner_id: str, db: Session) -> OwnerAnalyticsResponse:
         owner = db.get(User, owner_id)
@@ -179,7 +244,9 @@ class RentoryService:
             raise HTTPException(status_code=404, detail=messages.OWNER_NOT_FOUND)
 
         grouped_rows = db.execute(
-            select(Property.location, func.count(Property.id)).where(Property.owner_id == owner_id).group_by(Property.location)
+            select(Property.location, func.count(Property.id))
+            .where(Property.owner_id == owner_id)
+            .group_by(Property.location)
         ).all()
         total_tenants = db.scalar(
             select(func.count(PropertyTenant.id))
@@ -195,7 +262,9 @@ class RentoryService:
             total_tenants=total_tenants or 0,
         )
 
-    def create_property(self, owner_id: str, payload: PropertyCreateRequest, db: Session) -> PropertyCardResponse:
+    def create_property(
+        self, owner_id: str, payload: PropertyCreateRequest, db: Session
+    ) -> PropertyCardResponse:
         owner = db.get(User, owner_id)
         if owner is None or owner.role != "owner":
             raise HTTPException(status_code=404, detail=messages.OWNER_NOT_FOUND)
@@ -228,7 +297,9 @@ class RentoryService:
         db.add(property_row)
         db.flush()
 
-        chat_group = ChatGroup(id=str(uuid4()), property_id=property_row.id, group_name=property_row.name)
+        chat_group = ChatGroup(
+            id=str(uuid4()), property_id=property_row.id, group_name=property_row.name
+        )
         db.add(chat_group)
         db.flush()
         self.ensure_chat_membership(db, chat_group.id, owner_id, "owner")
@@ -237,7 +308,13 @@ class RentoryService:
         db.refresh(property_row)
         return self.property_card(property_row)
 
-    def update_property(self, property_id: str, payload: PropertyUpdateRequest, actor_id: str, db: Session) -> PropertyCardResponse:
+    def update_property(
+        self,
+        property_id: str,
+        payload: PropertyUpdateRequest,
+        actor_id: str,
+        db: Session,
+    ) -> PropertyCardResponse:
         row = db.get(Property, property_id)
         if row is None:
             raise HTTPException(status_code=404, detail=messages.PROPERTY_NOT_FOUND)
@@ -263,7 +340,9 @@ class RentoryService:
         row.caretaker_contact = payload.caretaker_contact
         row.property_reference = payload.property_reference
 
-        chat_group = db.scalar(select(ChatGroup).where(ChatGroup.property_id == property_id))
+        chat_group = db.scalar(
+            select(ChatGroup).where(ChatGroup.property_id == property_id)
+        )
         if chat_group is not None:
             chat_group.group_name = payload.name
 
@@ -277,19 +356,33 @@ class RentoryService:
             raise HTTPException(status_code=404, detail=messages.PROPERTY_NOT_FOUND)
 
         owner = db.get(User, row.owner_id)
-        chat_group = db.scalar(select(ChatGroup).where(ChatGroup.property_id == property_id))
+        chat_group = db.scalar(
+            select(ChatGroup).where(ChatGroup.property_id == property_id)
+        )
         tenants = db.execute(
-            select(PropertyTenant.id, PropertyTenant.tenant_id, PropertyTenant.status, User.full_name, User.phone)
+            select(
+                PropertyTenant.id,
+                PropertyTenant.tenant_id,
+                PropertyTenant.status,
+                User.full_name,
+                User.phone,
+            )
             .join(User, User.id == PropertyTenant.tenant_id)
             .where(PropertyTenant.property_id == property_id)
         ).all()
 
         unread_notifications = db.scalar(
-            select(func.count(Notification.id)).where(Notification.owner_id == row.owner_id, Notification.property_id == property_id, Notification.is_read.is_(False))
+            select(func.count(Notification.id)).where(
+                Notification.owner_id == row.owner_id,
+                Notification.property_id == property_id,
+                Notification.is_read.is_(False),
+            )
         )
 
         return PropertyDetailsResponse(
-            property=self.property_card(row, unread_notifications=unread_notifications or 0),
+            property=self.property_card(
+                row, unread_notifications=unread_notifications or 0
+            ),
             description=row.description,
             current_bill_amount=row.current_bill_amount,
             water_bill_status=row.water_bill_status,
@@ -316,7 +409,9 @@ class RentoryService:
             ],
         )
 
-    def update_water_bill_status(self, property_id: str, payload: WaterBillStatusUpdateRequest, db: Session) -> dict:
+    def update_water_bill_status(
+        self, property_id: str, payload: WaterBillStatusUpdateRequest, db: Session
+    ) -> dict:
         row = db.get(Property, property_id)
         if row is None:
             raise HTTPException(status_code=404, detail=messages.PROPERTY_NOT_FOUND)
@@ -355,12 +450,18 @@ class RentoryService:
             rent=property_row.rent,
         )
 
-    def list_chat_messages(self, property_id: str, db: Session) -> list[ChatMessageResponse]:
+    def list_chat_messages(
+        self, property_id: str, db: Session
+    ) -> list[ChatMessageResponse]:
         group = db.scalar(select(ChatGroup).where(ChatGroup.property_id == property_id))
         if group is None:
             raise HTTPException(status_code=404, detail=messages.CHAT_GROUP_NOT_FOUND)
 
-        rows = db.scalars(select(ChatMessage).where(ChatMessage.group_id == group.id).order_by(ChatMessage.created_at)).all()
+        rows = db.scalars(
+            select(ChatMessage)
+            .where(ChatMessage.group_id == group.id)
+            .order_by(ChatMessage.created_at)
+        ).all()
         return [
             ChatMessageResponse(
                 id=row.id,
@@ -374,7 +475,9 @@ class RentoryService:
             for row in rows
         ]
 
-    def post_chat_message(self, property_id: str, payload: ChatMessageCreate, db: Session) -> ChatMessageResponse:
+    def post_chat_message(
+        self, property_id: str, payload: ChatMessageCreate, db: Session
+    ) -> ChatMessageResponse:
         group = db.scalar(select(ChatGroup).where(ChatGroup.property_id == property_id))
         if group is None:
             raise HTTPException(status_code=404, detail=messages.CHAT_GROUP_NOT_FOUND)
@@ -383,12 +486,21 @@ class RentoryService:
         if sender is None:
             raise HTTPException(status_code=404, detail=messages.SENDER_NOT_FOUND)
 
-        membership = db.scalar(select(ChatGroupMember).where(ChatGroupMember.group_id == group.id, ChatGroupMember.user_id == sender.id))
+        membership = db.scalar(
+            select(ChatGroupMember).where(
+                ChatGroupMember.group_id == group.id,
+                ChatGroupMember.user_id == sender.id,
+            )
+        )
         if membership is None:
-            raise HTTPException(status_code=403, detail=messages.SENDER_NOT_GROUP_MEMBER)
+            raise HTTPException(
+                status_code=403, detail=messages.SENDER_NOT_GROUP_MEMBER
+            )
 
         if not payload.text and not payload.image_url:
-            raise HTTPException(status_code=422, detail=messages.MESSAGE_CONTENT_REQUIRED)
+            raise HTTPException(
+                status_code=422, detail=messages.MESSAGE_CONTENT_REQUIRED
+            )
 
         row = ChatMessage(
             id=str(uuid4()),
@@ -411,7 +523,9 @@ class RentoryService:
             created_at=row.created_at,
         )
 
-    def request_join_property(self, property_id: str, payload: JoinRequestCreate, db: Session) -> JoinRequestResponse:
+    def request_join_property(
+        self, property_id: str, payload: JoinRequestCreate, db: Session
+    ) -> JoinRequestResponse:
         if db.get(Property, property_id) is None:
             raise HTTPException(status_code=404, detail=messages.PROPERTY_NOT_FOUND)
         tenant = db.get(User, payload.tenant_id)
@@ -496,7 +610,12 @@ class RentoryService:
 
         target_property_ids = payload.property_ids
         if not target_property_ids:
-            target_property_ids = [p.id for p in db.scalars(select(Property).where(Property.owner_id == payload.owner_id)).all()]
+            target_property_ids = [
+                p.id
+                for p in db.scalars(
+                    select(Property).where(Property.owner_id == payload.owner_id)
+                ).all()
+            ]
 
         created_ids: list[str] = []
         for property_id in target_property_ids:
@@ -547,23 +666,32 @@ class RentoryService:
             query = query.where(Notification.category == category)
         if search:
             like_term = f"%{search.strip()}%"
-            query = query.where((Notification.title.ilike(like_term)) | (Notification.body.ilike(like_term)))
+            query = query.where(
+                (Notification.title.ilike(like_term))
+                | (Notification.body.ilike(like_term))
+            )
 
         rows = db.scalars(query.order_by(Notification.created_at.desc())).all()
         unread_count = db.scalar(
-            select(func.count(Notification.id)).where(Notification.owner_id == owner_id, Notification.is_read.is_(False))
+            select(func.count(Notification.id)).where(
+                Notification.owner_id == owner_id, Notification.is_read.is_(False)
+            )
         )
         return NotificationListResponse(
             items=[self.notification_item(row) for row in rows],
             unread_count=unread_count or 0,
         )
 
-    def mark_notifications_read(self, owner_id: str, db: Session, property_id: str | None = None) -> NotificationMarkReadResponse:
+    def mark_notifications_read(
+        self, owner_id: str, db: Session, property_id: str | None = None
+    ) -> NotificationMarkReadResponse:
         owner = db.get(User, owner_id)
         if owner is None or owner.role != "owner":
             raise HTTPException(status_code=404, detail=messages.OWNER_NOT_FOUND)
 
-        query = select(Notification).where(Notification.owner_id == owner_id, Notification.is_read.is_(False))
+        query = select(Notification).where(
+            Notification.owner_id == owner_id, Notification.is_read.is_(False)
+        )
         if property_id:
             query = query.where(Notification.property_id == property_id)
 
@@ -575,7 +703,9 @@ class RentoryService:
         db.commit()
         return NotificationMarkReadResponse(updated=len(rows))
 
-    def create_maintenance(self, payload: MaintenanceCreate, db: Session) -> MaintenanceResponse:
+    def create_maintenance(
+        self, payload: MaintenanceCreate, db: Session
+    ) -> MaintenanceResponse:
         if db.get(Property, payload.property_id) is None:
             raise HTTPException(status_code=404, detail=messages.PROPERTY_NOT_FOUND)
 
