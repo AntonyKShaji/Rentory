@@ -114,6 +114,15 @@ class ApiService {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
+
+  Future<Map<String, dynamic>> getOwnerProfile(String ownerId) async {
+    final response = await _get('/owners/$ownerId/profile');
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load owner profile (${response.statusCode})');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   Future<List<Property>> listOwnerProperties(String ownerId) async {
     final response = await _get('/owners/$ownerId/properties');
     if (response.statusCode != 200) {

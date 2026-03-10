@@ -30,8 +30,14 @@ def test_health():
 
 
 def test_database_url_normalization_uses_psycopg_driver():
-    assert _normalize_database_url("postgresql://user:pass@localhost/db") == "postgresql+psycopg://user:pass@localhost/db"
-    assert _normalize_database_url("postgres://user:pass@localhost/db") == "postgresql+psycopg://user:pass@localhost/db"
+    assert (
+        _normalize_database_url("postgresql://user:pass@localhost/db")
+        == "postgresql+psycopg://user:pass@localhost/db"
+    )
+    assert (
+        _normalize_database_url("postgres://user:pass@localhost/db")
+        == "postgresql+psycopg://user:pass@localhost/db"
+    )
     assert (
         _normalize_database_url("postgresql+psycopg://user:pass@localhost/db")
         == "postgresql+psycopg://user:pass@localhost/db"
@@ -70,6 +76,46 @@ def test_property_image_field_supports_long_data_uris():
     assert create_property.status_code == 201
     assert create_property.json()["image_url"] == long_data_uri
     assert Property.__table__.c.image_url.type.length is None
+
+
+def test_owner_profile_returns_db_values():
+    owner_signup = client.post(
+        "/auth/owners/signup",
+        json={
+            "full_name": "Database Owner",
+            "phone": "900000777",
+            "email": "db-owner@rentory.local",
+            "password": "1234",
+        },
+    )
+    assert owner_signup.status_code == 201
+    owner_id = owner_signup.json()["user_id"]
+    owner_headers = auth_headers(owner_signup.json()["access_token"])
+
+    create_property = client.post(
+        f"/owners/{owner_id}/properties",
+        headers=owner_headers,
+        json={
+            "location": "Kakkanad",
+            "name": "DB-backed Villa",
+            "unit_type": "2BHK",
+            "capacity": 3,
+            "rent": 22000,
+            "image_url": "https://example.com/db-owner.jpg",
+            "description": "Profile should use DB values",
+        },
+    )
+    assert create_property.status_code == 201
+
+    profile_response = client.get(f"/owners/{owner_id}/profile", headers=owner_headers)
+    assert profile_response.status_code == 200
+    payload = profile_response.json()
+    assert payload["id"] == owner_id
+    assert payload["full_name"] == "Database Owner"
+    assert payload["phone"] == "900000777"
+    assert payload["email"] == "db-owner@rentory.local"
+    assert payload["role"] == "owner"
+    assert payload["total_properties"] == 1
 
 
 def test_owner_property_qr_chat_and_tenant_registration_flow():
@@ -113,7 +159,9 @@ def test_owner_property_qr_chat_and_tenant_registration_flow():
     property_data = create_property.json()
     property_id = property_data["id"]
 
-    detail_before_tenant = client.get(f"/properties/{property_id}", headers=owner_headers)
+    detail_before_tenant = client.get(
+        f"/properties/{property_id}", headers=owner_headers
+    )
     assert detail_before_tenant.status_code == 200
     assert detail_before_tenant.json()["property"]["is_active"] is True
     assert detail_before_tenant.json()["property"]["unread_notifications"] == 0
@@ -350,27 +398,41 @@ def test_owner_notifications_filter_search_and_mark_read_flow():
         },
     )
 
-    all_notifications = client.get(f"/owners/{owner_id}/notifications", headers=owner_headers)
+    all_notifications = client.get(
+        f"/owners/{owner_id}/notifications", headers=owner_headers
+    )
     assert all_notifications.status_code == 200
     assert len(all_notifications.json()["items"]) == 3
 
-    property_only = client.get(f"/owners/{owner_id}/notifications?property_id={property_a}", headers=owner_headers)
+    property_only = client.get(
+        f"/owners/{owner_id}/notifications?property_id={property_a}",
+        headers=owner_headers,
+    )
     assert property_only.status_code == 200
     assert len(property_only.json()["items"]) == 2
 
-    maintenance_only = client.get(f"/owners/{owner_id}/notifications?category=maintenance", headers=owner_headers)
+    maintenance_only = client.get(
+        f"/owners/{owner_id}/notifications?category=maintenance", headers=owner_headers
+    )
     assert maintenance_only.status_code == 200
     assert len(maintenance_only.json()["items"]) == 1
 
-    searched = client.get(f"/owners/{owner_id}/notifications?search=rent", headers=owner_headers)
+    searched = client.get(
+        f"/owners/{owner_id}/notifications?search=rent", headers=owner_headers
+    )
     assert searched.status_code == 200
     assert len(searched.json()["items"]) == 2
 
-    mark_property = client.patch(f"/owners/{owner_id}/notifications/mark-read?property_id={property_a}", headers=owner_headers)
+    mark_property = client.patch(
+        f"/owners/{owner_id}/notifications/mark-read?property_id={property_a}",
+        headers=owner_headers,
+    )
     assert mark_property.status_code == 200
     assert mark_property.json()["updated"] == 2
 
-    owner_properties = client.get(f"/owners/{owner_id}/properties", headers=owner_headers)
+    owner_properties = client.get(
+        f"/owners/{owner_id}/properties", headers=owner_headers
+    )
     assert owner_properties.status_code == 200
     by_id = {item["id"]: item for item in owner_properties.json()}
     assert by_id[property_a]["unread_notifications"] == 0
