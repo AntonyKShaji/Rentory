@@ -891,7 +891,6 @@ class _PropertyEditorPageState extends State<PropertyEditorPage> {
 
   final ApiService _api = ApiService();
   final ImagePicker _picker = ImagePicker();
-  final ApiService _api = ApiService();
   final _name = TextEditingController();
   final _location = TextEditingController();
   final _unitType = TextEditingController();
